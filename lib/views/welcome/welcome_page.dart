@@ -102,24 +102,6 @@ class _WelcomePageState extends State<WelcomePage> {
                         ),
                         const SizedBox(height: 44),
                         ..._buildActionButtons(data.actions),
-                        const SizedBox(height: 10),
-                        TextButton(
-                          onPressed: () {
-                            Navigator.of(context).push(
-                              MaterialPageRoute<void>(
-                                builder: (_) => const HomePage(),
-                              ),
-                            );
-                          },
-                          child: const Text(
-                            'Dev: Go to Home',
-                            style: TextStyle(
-                              color: Color(0xFF6B4AA0),
-                              fontSize: 13,
-                              fontWeight: FontWeight.w600,
-                            ),
-                          ),
-                        ),
                         const SizedBox(height: 30),
                       ],
                     ),

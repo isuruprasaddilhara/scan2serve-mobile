@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
+import 'package:scan2serve/api/favourites_api.dart';
 import 'package:scan2serve/api/orders_api.dart';
 import 'package:scan2serve/api/users_api.dart';
+import 'package:scan2serve/models/favourites/favourite_food_item_model.dart';
 import 'package:scan2serve/models/orders/my_order_model.dart';
 import 'package:scan2serve/navigation/navigate_to_home.dart';
 import 'package:scan2serve/models/profile/profile_model.dart';
@@ -70,7 +72,8 @@ class _ProfilePageState extends State<ProfilePage> {
   late final ProfileViewModel _viewModel;
   Map<String, dynamic>? _apiProfile;
   int? _ordersCountFromApi;
-  String? _favouriteGuessFromApi;
+  /// From order history (most ordered) or first saved favourite; no demo fallback.
+  String? _favouriteSubtitleFromApi;
 
   @override
   void initState() {
@@ -88,18 +91,36 @@ class _ProfilePageState extends State<ProfilePage> {
       } catch (_) {
         orders = <MyOrderModel>[];
       }
+
+      String? favSubtitle = _guessMostOrderedDish(orders);
+      if (favSubtitle == null || favSubtitle.isEmpty) {
+        try {
+          final List<dynamic> favList = await fetchFavourites();
+          for (final dynamic raw in favList) {
+            if (raw is! Map<String, dynamic>) continue;
+            final FavouriteFoodItemModel? it =
+                FavouriteFoodItemModel.tryFromApiJson(raw);
+            final String n = it?.name.trim() ?? '';
+            if (it != null && n.isNotEmpty) {
+              favSubtitle = n;
+              break;
+            }
+          }
+        } catch (_) {}
+      }
+
       if (!mounted) return;
       setState(() {
         _apiProfile = me;
         _ordersCountFromApi = orders.length;
-        _favouriteGuessFromApi = _guessMostOrderedDish(orders);
+        _favouriteSubtitleFromApi = favSubtitle;
       });
     } catch (_) {
       if (!mounted) return;
       setState(() {
         _apiProfile = null;
         _ordersCountFromApi = null;
-        _favouriteGuessFromApi = null;
+        _favouriteSubtitleFromApi = null;
       });
     }
   }
@@ -160,7 +181,7 @@ class _ProfilePageState extends State<ProfilePage> {
                               ? (_ordersCountFromApi ?? 0)
                               : data.ordersCount,
                           favourite: _apiProfile != null
-                              ? (_favouriteGuessFromApi ?? data.favouriteFood)
+                              ? (_favouriteSubtitleFromApi ?? 'None yet')
                               : data.favouriteFood,
                         ),
                         const SizedBox(height: 20),
@@ -239,20 +260,6 @@ class _ProfilePageState extends State<ProfilePage> {
       );
       return;
     }
-    String label = 'Open';
-    for (final ProfileMenuRowModel r in _viewModel.viewData.menuRows) {
-      if (r.id == id) {
-        label = r.label;
-        break;
-      }
-    }
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(
-        content: Text('$label — UI only'),
-        behavior: SnackBarBehavior.floating,
-        duration: const Duration(seconds: 2),
-      ),
-    );
   }
 
   void _confirmLogout(BuildContext context) {

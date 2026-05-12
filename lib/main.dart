@@ -1,15 +1,10 @@
 import 'package:flutter/material.dart';
 import 'package:scan2serve/navigation/app_navigator.dart';
-import 'package:scan2serve/services/menu_deep_link.dart';
 import 'package:scan2serve/theme/app_colors.dart';
 import 'package:scan2serve/views/welcome/welcome_page.dart';
 
 void main() {
-  WidgetsFlutterBinding.ensureInitialized();
   runApp(const Scan2ServeApp());
-  Future<void>.microtask(() async {
-    await startMenuDeepLinkListeners();
-  });
 }
 
 class Scan2ServeApp extends StatelessWidget {

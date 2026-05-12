@@ -23,6 +23,13 @@ import 'package:scan2serve/views/settings/settings_page.dart';
 import 'package:scan2serve/views/signup/sign_up_page.dart';
 import 'package:scan2serve/views/welcome/welcome_page.dart';
 
+/// Stable identity for menu rows so list recycling does not reuse the wrong image/state.
+String _menuItemListKey(MenuItemModel item) {
+  final int? id = item.menuItemId;
+  if (id != null) return 'id_$id';
+  return 'anon_${item.name}_${item.priceLabel}_${item.imageUrl ?? ''}';
+}
+
 class HomePage extends StatefulWidget {
   const HomePage({super.key});
 
@@ -209,6 +216,9 @@ class _HomePageState extends State<HomePage> {
                                           padding:
                                               const EdgeInsets.only(bottom: 10),
                                           child: _MenuItemCard(
+                                            key: ValueKey<String>(
+                                              _menuItemListKey(item),
+                                            ),
                                             item: item,
                                             onTapFood: () =>
                                                 _openFoodDetails(item),
@@ -345,26 +355,6 @@ class _HomePageState extends State<HomePage> {
         MaterialPageRoute<void>(builder: (_) => const SignUpPage()),
       );
       return;
-    }
-    final String message = switch (id) {
-      'home' => 'Home',
-      'profile' => 'Profile',
-      'cart' => 'Cart',
-      'order_track' => 'Order Track',
-      'chatbot' => 'Chatbot',
-      'my_orders' => 'My Orders',
-      'feedback' => 'Feedback',
-      'settings' => 'Settings',
-      _ => id,
-    };
-    if (id != 'home') {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text('$message — UI only (connect screen later)'),
-          behavior: SnackBarBehavior.floating,
-          duration: const Duration(seconds: 2),
-        ),
-      );
     }
   }
 
@@ -963,6 +953,112 @@ class _SearchBar extends StatelessWidget {
   }
 }
 
+/// Icon + color hints per category name (API tabs may vary).
+class _CategoryVisual {
+  const _CategoryVisual({required this.icon, required this.iconColor});
+
+  final IconData icon;
+  final Color iconColor;
+
+  static _CategoryVisual forLabel(String raw) {
+    final String s = raw.toLowerCase().trim();
+    if (s.contains('previous') ||
+        s.contains('past order') ||
+        s == 'history') {
+      return const _CategoryVisual(
+        icon: Icons.receipt_long_outlined,
+        iconColor: Color(0xFF8E7CC3),
+      );
+    }
+    if (s.contains('main') ||
+        s.contains('course') ||
+        s.contains('curry') ||
+        s.contains('rice')) {
+      return const _CategoryVisual(
+        icon: Icons.room_service_outlined,
+        iconColor: Color(0xFF9B77D6),
+      );
+    }
+    if (s.contains('starter')) {
+      return const _CategoryVisual(
+        icon: Icons.tapas_outlined,
+        iconColor: Color(0xFFD4A574),
+      );
+    }
+    if (s.contains('dessert') || s.contains('sweet')) {
+      return const _CategoryVisual(
+        icon: Icons.cake_outlined,
+        iconColor: Color(0xFFE879A6),
+      );
+    }
+    if (s.contains('beverage') ||
+        s.contains('drink') ||
+        s.contains('juice')) {
+      return const _CategoryVisual(
+        icon: Icons.local_cafe_outlined,
+        iconColor: Color(0xFF5C9EDC),
+      );
+    }
+    if (s.contains('fast')) {
+      return const _CategoryVisual(
+        icon: Icons.lunch_dining_outlined,
+        iconColor: Color(0xFFE8A34C),
+      );
+    }
+    if (s.contains('seafood') ||
+        s.contains('sea ') ||
+        s.contains('fish') ||
+        s.contains('prawn')) {
+      return const _CategoryVisual(
+        icon: Icons.set_meal_outlined,
+        iconColor: Color(0xFFFF9F6B),
+      );
+    }
+    if (s.contains('salad')) {
+      return const _CategoryVisual(
+        icon: Icons.eco_outlined,
+        iconColor: Color(0xFF6FCF97),
+      );
+    }
+    if (s.contains('grill')) {
+      return const _CategoryVisual(
+        icon: Icons.outdoor_grill_outlined,
+        iconColor: Color(0xFF7D6B8F),
+      );
+    }
+    if (s.contains('new')) {
+      return const _CategoryVisual(
+        icon: Icons.new_releases_outlined,
+        iconColor: Color(0xFFB388E7),
+      );
+    }
+    if (s.contains('vegetarian') ||
+        s.contains('vegan') ||
+        s == 'veg') {
+      return const _CategoryVisual(
+        icon: Icons.spa_outlined,
+        iconColor: Color(0xFF66BB6A),
+      );
+    }
+    if (s.contains('meat') || s.contains('beef') || s.contains('mutton')) {
+      return const _CategoryVisual(
+        icon: Icons.kebab_dining,
+        iconColor: Color(0xFFB0856E),
+      );
+    }
+    if (s.contains('other')) {
+      return const _CategoryVisual(
+        icon: Icons.category_outlined,
+        iconColor: Color(0xFF9E9E9E),
+      );
+    }
+    return const _CategoryVisual(
+      icon: Icons.restaurant_menu_outlined,
+      iconColor: Color(0xFF9B77D6),
+    );
+  }
+}
+
 class _TabStrip extends StatelessWidget {
   const _TabStrip({
     required this.tabs,
@@ -974,49 +1070,96 @@ class _TabStrip extends StatelessWidget {
   final String activeTab;
   final ValueChanged<String> onTabTap;
 
+  static const Color _accent = Color(0xFF9B77D6);
+
   @override
   Widget build(BuildContext context) {
     return SingleChildScrollView(
       scrollDirection: Axis.horizontal,
+      clipBehavior: Clip.none,
+      padding: const EdgeInsets.only(bottom: 4),
       child: Row(
-        children: tabs
-            .map(
-              (tab) => Padding(
-                padding: const EdgeInsets.only(right: 14),
-                child: InkWell(
-                  onTap: () => onTabTap(tab),
-                  child: Column(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      Text(
-                        tab,
-                        style: TextStyle(
-                          fontSize: 31 * 0.46,
-                          fontWeight: tab == activeTab
-                              ? FontWeight.w700
-                              : FontWeight.w500,
-                          color: tab == activeTab
-                              ? const Color(0xFF3C2E52)
-                              : const Color(0xFF8C819D),
-                        ),
-                      ),
-                      const SizedBox(height: 6),
-                      AnimatedContainer(
-                        duration: const Duration(milliseconds: 180),
-                        curve: Curves.easeOut,
-                        height: 3,
-                        width: tab == activeTab ? 42 : 0,
-                        decoration: BoxDecoration(
-                          color: const Color(0xFF9B77D6),
-                          borderRadius: BorderRadius.circular(2),
-                        ),
-                      ),
-                    ],
-                  ),
+        children: [
+          for (var i = 0; i < tabs.length; i++) ...[
+            if (i > 0) const SizedBox(width: 10),
+            _CategorySquareChip(
+              label: tabs[i],
+              selected: tabs[i] == activeTab,
+              visual: _CategoryVisual.forLabel(tabs[i]),
+              accent: _accent,
+              onTap: () => onTabTap(tabs[i]),
+            ),
+          ],
+        ],
+      ),
+    );
+  }
+}
+
+class _CategorySquareChip extends StatelessWidget {
+  const _CategorySquareChip({
+    required this.label,
+    required this.selected,
+    required this.visual,
+    required this.accent,
+    required this.onTap,
+  });
+
+  final String label;
+  final bool selected;
+  final _CategoryVisual visual;
+  final Color accent;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    return Material(
+      color: Colors.transparent,
+      child: InkWell(
+        onTap: onTap,
+        borderRadius: BorderRadius.circular(14),
+        child: Ink(
+          width: 80,
+          padding: const EdgeInsets.fromLTRB(6, 12, 6, 10),
+          decoration: BoxDecoration(
+            color: selected ? const Color(0xFFF5EEFE) : Colors.white,
+            borderRadius: BorderRadius.circular(14),
+            border: Border.all(
+              color: selected ? accent : const Color(0xFFE8E4EF),
+              width: selected ? 2 : 1,
+            ),
+            boxShadow: [
+              BoxShadow(
+                color: Colors.black.withValues(alpha: selected ? 0.06 : 0.05),
+                blurRadius: selected ? 8 : 6,
+                offset: const Offset(0, 2),
+              ),
+            ],
+          ),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Icon(
+                visual.icon,
+                size: 32,
+                color: selected ? accent : visual.iconColor,
+              ),
+              const SizedBox(height: 8),
+              Text(
+                label,
+                maxLines: 2,
+                overflow: TextOverflow.ellipsis,
+                textAlign: TextAlign.center,
+                style: TextStyle(
+                  fontSize: 11,
+                  height: 1.2,
+                  fontWeight: selected ? FontWeight.w700 : FontWeight.w600,
+                  color: selected ? accent : const Color(0xFF1B1528),
                 ),
               ),
-            )
-            .toList(),
+            ],
+          ),
+        ),
       ),
     );
   }
@@ -1024,6 +1167,7 @@ class _TabStrip extends StatelessWidget {
 
 class _MenuItemCard extends StatefulWidget {
   const _MenuItemCard({
+    super.key,
     required this.item,
     required this.onAddTap,
     this.onTapFood,
@@ -1049,6 +1193,17 @@ class _MenuItemCardState extends State<_MenuItemCard> {
     super.initState();
     authAccessToken.addListener(_onAuthChanged);
     WidgetsBinding.instance.addPostFrameCallback((_) => _syncFavourite());
+  }
+
+  @override
+  void didUpdateWidget(covariant _MenuItemCard oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (oldWidget.item.menuItemId != widget.item.menuItemId ||
+        oldWidget.item.imageUrl != widget.item.imageUrl ||
+        oldWidget.item.name != widget.item.name) {
+      WidgetsBinding.instance
+          .addPostFrameCallback((_) => _syncFavourite());
+    }
   }
 
   @override
@@ -1159,117 +1314,308 @@ class _MenuItemCardState extends State<_MenuItemCard> {
     }
   }
 
+  void _cartIncrement() {
+    if (CartStore.instance.quantityInCart(item) == 0) {
+      CartStore.instance.addMenuItem(item, 1);
+    } else {
+      CartStore.instance
+          .incrementQuantity(CartStore.instance.lineIdForMenuItem(item));
+    }
+  }
+
+  void _cartDecrement() {
+    CartStore.instance
+        .decrementQuantity(CartStore.instance.lineIdForMenuItem(item));
+  }
+
   @override
   Widget build(BuildContext context) {
-    final showHeart = item.menuItemId != null;
-    return Container(
-      decoration: BoxDecoration(
-        color: const Color(0xFFF5F1FB),
-        borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: const Color(0xFFE6DDF3)),
-        boxShadow: [
-          BoxShadow(
-            color: const Color(0xFF8F78B1).withValues(alpha: 0.09),
-            blurRadius: 10,
-            offset: const Offset(0, 4),
+    final bool showHeart = item.menuItemId != null;
+    const Color accentPurple = Color(0xFF9B77D6);
+    const Color pricePurple = Color(0xFF7C3AED);
+
+    return ListenableBuilder(
+      listenable: CartStore.instance,
+      builder: (BuildContext context, Widget? _) {
+        final int qty = CartStore.instance.quantityInCart(item);
+        return Container(
+          decoration: BoxDecoration(
+            color: Colors.white,
+            borderRadius: BorderRadius.circular(16),
+            boxShadow: [
+              BoxShadow(
+                color: const Color(0xFF6B5A8F).withValues(alpha: 0.08),
+                blurRadius: 12,
+                offset: const Offset(0, 4),
+              ),
+            ],
           ),
-        ],
-      ),
-      padding: const EdgeInsets.all(10),
-      child: Row(
-        children: [
-          if (showHeart) ...[
-            SizedBox(
-              width: 40,
-              child: _favBusy
-                  ? const Padding(
-                      padding: EdgeInsets.all(8),
-                      child: SizedBox(
-                        width: 20,
-                        height: 20,
-                        child: CircularProgressIndicator(strokeWidth: 2),
-                      ),
-                    )
-                  : IconButton(
-                      onPressed: () => _onHeartTap(context),
-                      icon: Icon(
-                        _isFavourite
-                            ? Icons.favorite_rounded
-                            : Icons.favorite_border_rounded,
-                        color: const Color(0xFF9B77D6),
-                        size: 22,
-                      ),
-                      padding: EdgeInsets.zero,
-                      constraints: const BoxConstraints(
-                        minWidth: 40,
-                        minHeight: 40,
-                      ),
+          padding: const EdgeInsets.all(12),
+          child: Row(
+            crossAxisAlignment: CrossAxisAlignment.center,
+            children: [
+              SizedBox(
+                width: 88,
+                height: 88,
+                child: Stack(
+                  clipBehavior: Clip.none,
+                  children: [
+                    DishImageBox(
+                      width: 88,
+                      height: 88,
+                      imageUrl: item.imageUrl,
+                      borderRadius: BorderRadius.circular(12),
                     ),
-            ),
-            const SizedBox(width: 4),
-          ],
-          Expanded(
-            child: InkWell(
-              onTap: widget.onTapFood,
-              borderRadius: BorderRadius.circular(10),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
+                    if (showHeart)
+                      Positioned(
+                        left: 4,
+                        top: 4,
+                        child: Material(
+                          color: Colors.white,
+                          elevation: 2,
+                          shadowColor: Colors.black26,
+                          shape: const CircleBorder(),
+                          child: InkWell(
+                            customBorder: const CircleBorder(),
+                            onTap: _favBusy ? null : () => _onHeartTap(context),
+                            child: SizedBox(
+                              width: 30,
+                              height: 30,
+                              child: _favBusy
+                                  ? const Padding(
+                                      padding: EdgeInsets.all(7),
+                                      child: SizedBox(
+                                        width: 14,
+                                        height: 14,
+                                        child: CircularProgressIndicator(
+                                          strokeWidth: 2,
+                                        ),
+                                      ),
+                                    )
+                                  : Icon(
+                                      _isFavourite
+                                          ? Icons.favorite_rounded
+                                          : Icons.favorite_border_rounded,
+                                      size: 16,
+                                      color: accentPurple,
+                                    ),
+                            ),
+                          ),
+                        ),
+                      ),
+                  ],
+                ),
+              ),
+              const SizedBox(width: 12),
+              Expanded(
+                child: InkWell(
+                  onTap: widget.onTapFood,
+                  borderRadius: BorderRadius.circular(8),
+                  child: Padding(
+                    padding: const EdgeInsets.symmetric(vertical: 2),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          item.name,
+                          style: const TextStyle(
+                            fontSize: 16,
+                            fontWeight: FontWeight.w700,
+                            color: Color(0xFF1B1528),
+                            height: 1.2,
+                          ),
+                        ),
+                        if (item.description.trim().isNotEmpty) ...[
+                          const SizedBox(height: 4),
+                          Text(
+                            item.description,
+                            maxLines: 2,
+                            overflow: TextOverflow.ellipsis,
+                            style: TextStyle(
+                              fontSize: 13,
+                              height: 1.25,
+                              fontWeight: FontWeight.w500,
+                              color: Colors.grey.shade600,
+                            ),
+                          ),
+                        ],
+                        const SizedBox(height: 6),
+                        Text(
+                          item.priceLabel,
+                          style: const TextStyle(
+                            fontSize: 16,
+                            fontWeight: FontWeight.w800,
+                            color: pricePurple,
+                          ),
+                        ),
+                        if (item.rating != null) ...[
+                          const SizedBox(height: 6),
+                          _MenuRatingPill(
+                            rating: item.rating!,
+                            reviewCount: item.reviewCount,
+                          ),
+                        ],
+                      ],
+                    ),
+                  ),
+                ),
+              ),
+              const SizedBox(width: 8),
+              Column(
+                mainAxisSize: MainAxisSize.min,
                 children: [
-                  Text(
-                    item.name,
-                    style: const TextStyle(
-                      fontSize: 31 * 0.66,
-                      fontWeight: FontWeight.w700,
-                      color: Color(0xFF3C2E52),
-                    ),
+                  _MenuQtyStepper(
+                    quantity: qty,
+                    enabledMinus: qty > 0,
+                    onMinus: qty > 0 ? _cartDecrement : null,
+                    onPlus: _cartIncrement,
                   ),
-                  const SizedBox(height: 6),
-                  Text(
-                    item.priceLabel,
-                    style: const TextStyle(
-                      fontSize: 22 * 0.66,
-                      color: Color(0xFF3E3350),
-                      fontWeight: FontWeight.w600,
-                    ),
-                  ),
-                  Text(
-                    item.description,
-                    style: const TextStyle(
-                      fontSize: 21 * 0.6,
-                      fontWeight: FontWeight.w500,
-                      color: Color(0xFF3D3550),
+                  const SizedBox(height: 8),
+                  SizedBox(
+                    width: 78,
+                    height: 36,
+                    child: FilledButton(
+                      onPressed: widget.onAddTap,
+                      style: FilledButton.styleFrom(
+                        backgroundColor: accentPurple,
+                        foregroundColor: const Color(0xFF1A1520),
+                        padding: const EdgeInsets.symmetric(horizontal: 8),
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(10),
+                        ),
+                        elevation: 0,
+                      ),
+                      child: const Row(
+                        mainAxisAlignment: MainAxisAlignment.center,
+                        children: [
+                          Text(
+                            'Add',
+                            style: TextStyle(
+                              fontSize: 13,
+                              fontWeight: FontWeight.w700,
+                            ),
+                          ),
+                          SizedBox(width: 4),
+                          Icon(Icons.add_circle_outline, size: 18),
+                        ],
+                      ),
                     ),
                   ),
                 ],
               ),
+            ],
+          ),
+        );
+      },
+    );
+  }
+}
+
+/// Rating chip below price on menu rows (when API supplies [MenuItemModel.rating]).
+class _MenuRatingPill extends StatelessWidget {
+  const _MenuRatingPill({
+    required this.rating,
+    this.reviewCount,
+  });
+
+  final double rating;
+  final int? reviewCount;
+
+  @override
+  Widget build(BuildContext context) {
+    final String r = rating.toStringAsFixed(1);
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+      decoration: BoxDecoration(
+        color: const Color(0xFFEDE4FA),
+        borderRadius: BorderRadius.circular(20),
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Icon(Icons.star_rounded, size: 15, color: Colors.amber.shade700),
+          const SizedBox(width: 3),
+          Text(
+            r,
+            style: const TextStyle(
+              fontSize: 12,
+              fontWeight: FontWeight.w700,
+              color: Color(0xFF3C2E52),
             ),
           ),
-          const SizedBox(width: 8),
-          Stack(
-            children: [
-              DishImageBox(
-                width: 96,
-                height: 58,
-                imageUrl: item.imageUrl,
-                borderRadius: BorderRadius.circular(30),
+          if (reviewCount != null) ...[
+            Text(
+              ' ($reviewCount)',
+              style: TextStyle(
+                fontSize: 12,
+                fontWeight: FontWeight.w600,
+                color: Colors.grey.shade700,
               ),
-              Positioned(
-                right: -2,
-                top: -2,
-                child: InkWell(
-                  onTap: widget.onAddTap,
-                  child: Container(
-                    width: 28,
-                    height: 28,
-                    decoration: const BoxDecoration(
-                      color: Colors.white,
-                      shape: BoxShape.circle,
-                    ),
-                    child: const Icon(Icons.add, size: 22),
-                  ),
-                ),
+            ),
+          ],
+        ],
+      ),
+    );
+  }
+}
+
+class _MenuQtyStepper extends StatelessWidget {
+  const _MenuQtyStepper({
+    required this.quantity,
+    required this.enabledMinus,
+    required this.onPlus,
+    this.onMinus,
+  });
+
+  final int quantity;
+  final bool enabledMinus;
+  final VoidCallback? onMinus;
+  final VoidCallback onPlus;
+
+  @override
+  Widget build(BuildContext context) {
+    final Color inactive = Colors.grey.shade400;
+    const Color onStepper = Color(0xFF3C2E52);
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 2, vertical: 2),
+      decoration: BoxDecoration(
+        color: const Color(0xFFECECF0),
+        borderRadius: BorderRadius.circular(8),
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          InkWell(
+            onTap: enabledMinus ? onMinus : null,
+            borderRadius: BorderRadius.circular(6),
+            child: Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 4),
+              child: Icon(
+                Icons.remove,
+                size: 18,
+                color: enabledMinus ? onStepper : inactive,
               ),
-            ],
+            ),
+          ),
+          SizedBox(
+            width: 26,
+            child: Text(
+              '$quantity',
+              textAlign: TextAlign.center,
+              style: const TextStyle(
+                fontSize: 14,
+                fontWeight: FontWeight.w700,
+                color: onStepper,
+              ),
+            ),
+          ),
+          InkWell(
+            onTap: onPlus,
+            borderRadius: BorderRadius.circular(6),
+            child: const Padding(
+              padding: EdgeInsets.symmetric(horizontal: 6, vertical: 4),
+              child: Icon(Icons.add, size: 18, color: Color(0xFF3C2E52)),
+            ),
           ),
         ],
       ),

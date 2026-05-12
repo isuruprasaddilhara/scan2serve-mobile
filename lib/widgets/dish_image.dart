@@ -32,9 +32,11 @@ class DishImageBox extends StatelessWidget {
     if (url != null && url.isNotEmpty) {
       return Image.network(
         url,
+        key: ValueKey<String>(url),
         width: width,
         height: height,
         fit: fit,
+        gaplessPlayback: false,
         errorBuilder: (_, __, ___) => _placeholder(),
         // Web: default fetch() is CORS-blocked for many static hosts; <img> is not.
         webHtmlElementStrategy: kIsWeb
@@ -101,9 +103,11 @@ class DishImageCover extends StatelessWidget {
     if (url != null && url.isNotEmpty) {
       return Image.network(
         url,
+        key: ValueKey<String>(url),
         width: w,
         height: h,
         fit: fit,
+        gaplessPlayback: false,
         errorBuilder: (_, __, ___) => _placeholderIcon(w, h),
         webHtmlElementStrategy: kIsWeb
             ? WebHtmlElementStrategy.prefer
