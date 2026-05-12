@@ -1,11 +1,13 @@
 import 'package:flutter/material.dart';
 import 'package:scan2serve/navigation/app_navigator.dart';
 import 'package:scan2serve/services/menu_deep_link.dart';
+import 'package:scan2serve/session/session_table.dart';
 import 'package:scan2serve/theme/app_colors.dart';
 import 'package:scan2serve/views/welcome/welcome_page.dart';
 
-void main() {
+void main() async {
   WidgetsFlutterBinding.ensureInitialized();
+  await restoreSessionTable();
   runApp(const Scan2ServeApp());
   Future<void>.microtask(() async {
     await startMenuDeepLinkListeners();

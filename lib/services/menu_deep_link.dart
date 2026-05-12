@@ -54,14 +54,22 @@ bool _isAllowedMenuQr(Uri uri) {
 
   final String host = uri.host.toLowerCase();
   if (!_allowedHosts().contains(host)) return false;
+
+  // Accept if the URL has a table_no/table/tableNo query param (QR links like
+  // https://scan2serve-1.web.app/?table_no=2&token=…) OR contains /menu in path.
+  final Map<String, String> q = uri.queryParameters;
+  final bool hasTableParam =
+      q.containsKey('table_no') || q.containsKey('table') ||
+      q.containsKey('table_id') || q.containsKey('tableNo');
   final String path = uri.path.toLowerCase();
-  return path.contains('menu');
+  return hasTableParam || path.contains('menu');
 }
 
 Set<String> _allowedHosts() {
   final Set<String> out = <String>{
     'scan2serve.online',
     'www.scan2serve.online',
+    'scan2serve-1.web.app',
     '35.188.107.160',
     'localhost',
     '127.0.0.1',
