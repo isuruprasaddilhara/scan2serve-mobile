@@ -110,7 +110,7 @@ class OrderDetailsPage extends StatelessWidget {
               onDownload: () {
                 ScaffoldMessenger.of(context).showSnackBar(
                   const SnackBar(
-                    content: Text('Download bill — connect backend later'),
+                    content: Text('Bill download isn’t available yet.'),
                     behavior: SnackBarBehavior.floating,
                   ),
                 );

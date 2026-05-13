@@ -19,6 +19,8 @@ class MenuItemModel {
     required this.description,
     this.menuItemId,
     this.imageUrl,
+    this.rating,
+    this.reviewCount,
   });
 
   final String name;
@@ -27,4 +29,8 @@ class MenuItemModel {
   final int? menuItemId;
   /// Absolute URL from API (see [menuItemFromApiJson]).
   final String? imageUrl;
+  /// Average rating when provided by API (e.g. feedback aggregates).
+  final double? rating;
+  /// Number of reviews/ratings when provided by API.
+  final int? reviewCount;
 }

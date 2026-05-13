@@ -41,6 +41,17 @@ class CartStore extends ChangeNotifier {
     );
   }
 
+  /// Same key used when merging lines in [addMenuItem].
+  String lineIdForMenuItem(MenuItemModel item) => _lineId(item);
+
+  int quantityInCart(MenuItemModel item) {
+    final String id = _lineId(item);
+    for (final CartItemModel e in _lines) {
+      if (e.id == id) return e.quantity;
+    }
+    return 0;
+  }
+
   /// Add or merge quantities for the same menu row.
   void addMenuItem(MenuItemModel item, [int quantity = 1]) {
     final int q = quantity < 1 ? 1 : quantity;

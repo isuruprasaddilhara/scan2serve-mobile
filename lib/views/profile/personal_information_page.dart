@@ -1,8 +1,10 @@
 import 'dart:async';
 
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:scan2serve/api/auth_token_store.dart';
 import 'package:scan2serve/api/users_api.dart';
+import 'package:scan2serve/formatting/phone_number_input.dart';
 import 'package:scan2serve/navigation/navigate_to_home.dart';
 import 'package:scan2serve/theme/app_colors.dart';
 import 'package:scan2serve/views/track_order/track_order_page.dart';
@@ -76,7 +78,8 @@ class _PersonalInformationPageState extends State<PersonalInformationPage> {
       if (!mounted) return;
       _nameController.text = customerMeDisplayName(me);
       _emailController.text = (me['email'] as String?)?.trim() ?? '';
-      _phoneController.text = customerMePhone(me);
+      _phoneController.text =
+          normalizePhoneForTenDigitField(customerMePhone(me));
       setState(() => _loading = false);
     } on UsersApiException catch (e) {
       if (!mounted) return;
@@ -109,6 +112,10 @@ class _PersonalInformationPageState extends State<PersonalInformationPage> {
     }
     if (email.isEmpty) {
       _toast('Please enter your email.');
+      return;
+    }
+    if (!isValidLocalPhoneNumber(phone)) {
+      _toast('Phone number must be exactly 10 digits.');
       return;
     }
 
@@ -223,7 +230,8 @@ class _PersonalInformationPageState extends State<PersonalInformationPage> {
                               _LabeledField(
                                 label: 'Phone Number',
                                 controller: _phoneController,
-                                keyboardType: TextInputType.phone,
+                                keyboardType: TextInputType.number,
+                                inputFormatters: localPhoneInputFormatters,
                                 enabled: !_saving,
                               ),
                               const SizedBox(height: 32),
@@ -249,7 +257,7 @@ class _PersonalInformationPageState extends State<PersonalInformationPage> {
   void _onChangePhoto() {
     ScaffoldMessenger.of(context).showSnackBar(
       const SnackBar(
-        content: Text('Change photo — connect picker later'),
+        content: Text('Photo update isn’t available yet.'),
         behavior: SnackBarBehavior.floating,
       ),
     );
@@ -389,6 +397,7 @@ class _LabeledField extends StatelessWidget {
     required this.label,
     required this.controller,
     required this.keyboardType,
+    this.inputFormatters,
     this.suffix,
     this.enabled = true,
   });
@@ -396,6 +405,7 @@ class _LabeledField extends StatelessWidget {
   final String label;
   final TextEditingController controller;
   final TextInputType keyboardType;
+  final List<TextInputFormatter>? inputFormatters;
   final Widget? suffix;
   final bool enabled;
 
@@ -417,6 +427,7 @@ class _LabeledField extends StatelessWidget {
           controller: controller,
           enabled: enabled,
           keyboardType: keyboardType,
+          inputFormatters: inputFormatters,
           style: const TextStyle(
             fontSize: 16,
             fontWeight: FontWeight.w600,

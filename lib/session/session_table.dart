@@ -6,15 +6,8 @@ final ValueNotifier<String?> sessionTableCode = ValueNotifier<String?>(null);
 /// Optional numeric table id when known separately from [sessionTableCode].
 final ValueNotifier<int?> sessionTableId = ValueNotifier<int?>(null);
 
-/// Visit/session token from QR (`token=` query param). Optional for APIs that validate table visits.
-final ValueNotifier<String?> sessionVisitToken = ValueNotifier<String?>(null);
-
 Listenable get sessionTableListenables =>
-    Listenable.merge(<Listenable>[
-      sessionTableCode,
-      sessionTableId,
-      sessionVisitToken,
-    ]);
+    Listenable.merge(<Listenable>[sessionTableCode, sessionTableId]);
 
 void setSessionTableCode(String? code) {
   final String? t = code?.trim();
@@ -23,11 +16,6 @@ void setSessionTableCode(String? code) {
 
 void setSessionTableId(int? id) {
   sessionTableId.value = id;
-}
-
-void setSessionVisitToken(String? token) {
-  final String? t = token?.trim();
-  sessionVisitToken.value = (t == null || t.isEmpty) ? null : t;
 }
 
 /// Backend `table` field for `POST /orders/`. Uses [sessionTableId], then digits in

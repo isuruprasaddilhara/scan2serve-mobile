@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'package:scan2serve/formatting/phone_number_input.dart';
 import 'package:scan2serve/models/signup/sign_up_model.dart';
 import 'package:scan2serve/theme/app_colors.dart';
 import 'package:scan2serve/viewmodels/signup/sign_up_view_model.dart';
@@ -192,6 +193,11 @@ class _SignUpPageState extends State<SignUpPage> {
           onToggleObscure: field.isObscure
               ? () => _viewModel.toggleObscure(field.id)
               : null,
+          keyboardType: field.id == 'phone'
+              ? TextInputType.number
+              : TextInputType.text,
+          inputFormatters:
+              field.id == 'phone' ? localPhoneInputFormatters : null,
         ),
       );
       if (i != fields.length - 1) {
@@ -428,6 +434,8 @@ class _SignUpTextField extends StatelessWidget {
     required this.icon,
     required this.obscureText,
     this.onToggleObscure,
+    this.keyboardType = TextInputType.text,
+    this.inputFormatters,
   });
 
   final TextEditingController controller;
@@ -435,6 +443,8 @@ class _SignUpTextField extends StatelessWidget {
   final IconData icon;
   final bool obscureText;
   final VoidCallback? onToggleObscure;
+  final TextInputType keyboardType;
+  final List<TextInputFormatter>? inputFormatters;
 
   @override
   Widget build(BuildContext context) {
@@ -447,6 +457,8 @@ class _SignUpTextField extends StatelessWidget {
       ),
       child: TextField(
         controller: controller,
+        keyboardType: keyboardType,
+        inputFormatters: inputFormatters,
         obscureText: obscureText,
         style: const TextStyle(
           fontSize: 19 * 0.7,

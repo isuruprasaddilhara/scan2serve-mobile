@@ -31,8 +31,5 @@ class WelcomeViewModel extends ChangeNotifier {
     ],
   );
 
-  void onActionTap(String actionId) {
-    // Navigation/backend wiring will be added later.
-    debugPrint('Tapped action: $actionId');
-  }
+  void onActionTap(String actionId) {}
 }

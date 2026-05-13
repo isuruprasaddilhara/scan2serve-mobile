@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:scan2serve/api/users_api.dart';
+import 'package:scan2serve/formatting/phone_number_input.dart';
 import 'package:scan2serve/models/signup/sign_up_model.dart';
 
 class SignUpViewModel extends ChangeNotifier {
@@ -91,6 +92,11 @@ class SignUpViewModel extends ChangeNotifier {
         password.isEmpty ||
         confirm.isEmpty) {
       _errorMessage = 'Please fill in all fields.';
+      notifyListeners();
+      return false;
+    }
+    if (!isValidLocalPhoneNumber(phone)) {
+      _errorMessage = 'Phone number must be exactly 10 digits.';
       notifyListeners();
       return false;
     }
