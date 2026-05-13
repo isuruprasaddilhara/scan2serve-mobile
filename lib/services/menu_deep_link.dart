@@ -10,19 +10,6 @@ final AppLinks _appLinks = AppLinks();
 /// Reads the table_no from the incoming QR / deep-link URL and stores it in
 /// the session. Does NOT navigate — the welcome page handles that so the user
 /// still goes through guest / login / sign-up before reaching the menu.
-///
-/// Works for:
-///   • Flutter Web  – reads `window.location` via [Uri.base] on startup.
-///   • Android APK  – App Links (HTTPS) and custom scheme (scan2serve://).
-///   • iOS          – Universal Links and custom scheme.
-///
-/// Allowed URL shapes:
-///   https://scan2serve-1.web.app/?table_no=2
-///   https://scan2serve.online/menu?table_no=2
-///   scan2serve://menu?table_no=2
-///
-/// Optional extra hosts via dart-define:
-///   --dart-define=MENU_QR_EXTRA_HOSTS=mobile.example.com,staging.example.com
 Future<void> startMenuDeepLinkListeners() async {
   // ── Flutter Web ──────────────────────────────────────────────────────────
   if (kIsWeb) {
@@ -46,8 +33,8 @@ void _handleIncomingMenuUri(Uri uri) {
   final int? table = _parseTableNo(uri);
   if (table == null || table <= 0) return;
 
-  // Just save the table — do NOT navigate.
-  // The welcome page will navigate to home after the user picks guest/login/signup.
+  // Save the table number only. Do NOT navigate.
+  // The welcome page will navigate to home after the user picks guest / login / sign-up.
   setSessionTableId(table);
   setSessionTableCode('T$table');
 }
