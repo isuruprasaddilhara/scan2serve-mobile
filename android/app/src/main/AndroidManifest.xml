@@ -25,6 +25,7 @@
                 <action android:name="android.intent.action.MAIN"/>
                 <category android:name="android.intent.category.LAUNCHER"/>
             </intent-filter>
+<<<<<<< Updated upstream
 
             <!-- ── HTTPS App Links ─────────────────────────────────────── -->
 
@@ -62,6 +63,8 @@
                 <category android:name="android.intent.category.BROWSABLE" />
                 <data android:scheme="scan2serve" android:host="menu" />
             </intent-filter>
+=======
+>>>>>>> Stashed changes
         </activity>
 
         <!-- Flutter embedding meta-data — do not remove -->

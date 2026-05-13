@@ -1,10 +1,10 @@
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:scan2serve/navigation/app_navigator.dart';
-import 'package:scan2serve/services/menu_deep_link.dart';
 import 'package:scan2serve/theme/app_colors.dart';
 import 'package:scan2serve/views/welcome/welcome_page.dart';
 
+<<<<<<< Updated upstream
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
 
@@ -20,6 +20,10 @@ void main() async {
   if (!kIsWeb) {
     await startMenuDeepLinkListeners();
   }
+=======
+void main() {
+  runApp(const Scan2ServeApp());
+>>>>>>> Stashed changes
 }
 
 class Scan2ServeApp extends StatelessWidget {
