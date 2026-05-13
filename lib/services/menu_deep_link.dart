@@ -2,15 +2,16 @@ import 'dart:async';
 
 import 'package:app_links/app_links.dart';
 import 'package:flutter/foundation.dart';
+import 'package:flutter/material.dart';
 import 'package:flutter/scheduler.dart';
 import 'package:scan2serve/api/api_config.dart';
-import 'package:scan2serve/navigation/navigate_to_home.dart';
+import 'package:scan2serve/navigation/app_navigator.dart';
 import 'package:scan2serve/session/session_table.dart';
+import 'package:scan2serve/views/home/home_page.dart';
 
 final AppLinks _appLinks = AppLinks();
 
-/// Subscribes to menu QR / App Links and applies [table_no] + optional [token]
-/// to the session.
+/// Subscribes to menu QR / App Links and applies [table_no] to the session.
 ///
 /// Works for:
 ///   • Flutter Web  – reads `window.location` via [Uri.base] on startup.
@@ -18,9 +19,9 @@ final AppLinks _appLinks = AppLinks();
 ///   • iOS          – Universal Links and custom scheme.
 ///
 /// Allowed URL shapes:
-///   https://scan2serve-1.web.app/?table_no=2&token=…      (web app, root path)
-///   https://scan2serve.online/menu?table_no=2&token=…     (HTTPS deep link)
-///   scan2serve://menu?table_no=2&token=…                  (custom scheme)
+///   https://scan2serve-1.web.app/?table_no=2&token=…
+///   https://scan2serve.online/menu?table_no=2&token=…
+///   scan2serve://menu?table_no=2&token=…
 ///
 /// Optional extra hosts via dart-define:
 ///   --dart-define=MENU_QR_EXTRA_HOSTS=mobile.example.com,staging.example.com
@@ -50,11 +51,15 @@ void _handleIncomingMenuUri(Uri uri) {
 
   setSessionTableId(table);
   setSessionTableCode('T$table');
-  final String? tok = uri.queryParameters['token']?.trim();
-  setSessionVisitToken((tok != null && tok.isNotEmpty) ? tok : null);
 
   SchedulerBinding.instance.addPostFrameCallback((_) {
-    navigateToHomeFromRootNavigator();
+    final NavigatorState? nav = rootNavigatorKey.currentState;
+    if (nav != null && nav.mounted) {
+      nav.pushAndRemoveUntil(
+        MaterialPageRoute<void>(builder: (_) => const HomePage()),
+        (_) => false,
+      );
+    }
   });
 }
 
