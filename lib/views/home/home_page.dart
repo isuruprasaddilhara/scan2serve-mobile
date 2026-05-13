@@ -209,6 +209,7 @@ class _HomePageState extends State<HomePage> {
                                           padding:
                                               const EdgeInsets.only(bottom: 10),
                                           child: _MenuItemCard(
+                                            key: ValueKey(item.menuItemId ?? item.name),
                                             item: item,
                                             onTapFood: () =>
                                                 _openFoodDetails(item),
