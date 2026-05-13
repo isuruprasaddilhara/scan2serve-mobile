@@ -216,13 +216,9 @@ class _HomePageState extends State<HomePage> {
                                           padding:
                                               const EdgeInsets.only(bottom: 10),
                                           child: _MenuItemCard(
-<<<<<<< Updated upstream
-                                            key: ValueKey(item.menuItemId ?? item.name),
-=======
                                             key: ValueKey<String>(
                                               _menuItemListKey(item),
                                             ),
->>>>>>> Stashed changes
                                             item: item,
                                             onTapFood: () =>
                                                 _openFoodDetails(item),

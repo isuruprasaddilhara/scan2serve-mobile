@@ -32,11 +32,7 @@ class DishImageBox extends StatelessWidget {
     if (url != null && url.isNotEmpty) {
       return Image.network(
         url,
-<<<<<<< Updated upstream
-        key: ValueKey(url),
-=======
         key: ValueKey<String>(url),
->>>>>>> Stashed changes
         width: width,
         height: height,
         fit: fit,
@@ -107,11 +103,7 @@ class DishImageCover extends StatelessWidget {
     if (url != null && url.isNotEmpty) {
       return Image.network(
         url,
-<<<<<<< Updated upstream
-        key: ValueKey(url),
-=======
         key: ValueKey<String>(url),
->>>>>>> Stashed changes
         width: w,
         height: h,
         fit: fit,
