@@ -1025,6 +1025,7 @@ class _TabStrip extends StatelessWidget {
 
 class _MenuItemCard extends StatefulWidget {
   const _MenuItemCard({
+    super.key,
     required this.item,
     required this.onAddTap,
     this.onTapFood,
