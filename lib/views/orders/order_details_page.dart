@@ -107,14 +107,6 @@ class OrderDetailsPage extends StatelessWidget {
             ),
             _BottomActions(
               bottomInset: bottom,
-              onDownload: () {
-                ScaffoldMessenger.of(context).showSnackBar(
-                  const SnackBar(
-                    content: Text('Bill download isn’t available yet.'),
-                    behavior: SnackBarBehavior.floating,
-                  ),
-                );
-              },
               onReorder: () => _reorderPastOrderToCart(context, detail),
             ),
           ],
@@ -578,12 +570,10 @@ class _WhiteCard extends StatelessWidget {
 class _BottomActions extends StatelessWidget {
   const _BottomActions({
     required this.bottomInset,
-    required this.onDownload,
     required this.onReorder,
   });
 
   final double bottomInset;
-  final VoidCallback onDownload;
   final VoidCallback onReorder;
 
   @override
@@ -600,62 +590,37 @@ class _BottomActions extends StatelessWidget {
           ),
         ],
       ),
-      child: Column(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          SizedBox(
-            width: double.infinity,
-            height: 50,
-            child: OutlinedButton.icon(
-              onPressed: onDownload,
-              icon: const Icon(Icons.download_outlined, size: 22),
-              label: const Text(
-                'Download Bill',
-                style: TextStyle(fontSize: 16, fontWeight: FontWeight.w700),
-              ),
-              style: OutlinedButton.styleFrom(
-                foregroundColor: _DetailUi.accent,
-                side: const BorderSide(color: Color(0xFFD7C8F2)),
-                shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(14),
-                ),
-              ),
-            ),
-          ),
-          const SizedBox(height: 10),
-          SizedBox(
-            width: double.infinity,
-            height: 50,
-            child: Material(
-              color: Colors.transparent,
-              child: InkWell(
-                onTap: onReorder,
+      child: SizedBox(
+        width: double.infinity,
+        height: 50,
+        child: Material(
+          color: Colors.transparent,
+          child: InkWell(
+            onTap: onReorder,
+            borderRadius: BorderRadius.circular(14),
+            child: Ink(
+              decoration: BoxDecoration(
                 borderRadius: BorderRadius.circular(14),
-                child: Ink(
-                  decoration: BoxDecoration(
-                    borderRadius: BorderRadius.circular(14),
-                    gradient: _DetailUi.reorderGradient,
+                gradient: _DetailUi.reorderGradient,
+              ),
+              child: const Row(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  Icon(Icons.refresh_rounded, color: Color(0xFF1A1520), size: 22),
+                  SizedBox(width: 8),
+                  Text(
+                    'Reorder',
+                    style: TextStyle(
+                      fontSize: 16,
+                      fontWeight: FontWeight.w700,
+                      color: Color(0xFF1A1520),
+                    ),
                   ),
-                  child: const Row(
-                    mainAxisAlignment: MainAxisAlignment.center,
-                    children: [
-                      Icon(Icons.refresh_rounded, color: Color(0xFF1A1520), size: 22),
-                      SizedBox(width: 8),
-                      Text(
-                        'Reorder',
-                        style: TextStyle(
-                          fontSize: 16,
-                          fontWeight: FontWeight.w700,
-                          color: Color(0xFF1A1520),
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
+                ],
               ),
             ),
           ),
-        ],
+        ),
       ),
     );
   }

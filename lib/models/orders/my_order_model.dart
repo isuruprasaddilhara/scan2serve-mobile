@@ -11,6 +11,7 @@ class MyOrderModel {
     this.itemRows,
     this.apiSpecialNotes,
     this.apiCreatedAtIso,
+    this.apiStatusRaw,
   });
 
   final String orderNo;
@@ -19,6 +20,9 @@ class MyOrderModel {
   final String dateLabel;
   final int amountRs;
   final MyOrderStatus status;
+
+  /// Raw `status` from `GET /orders/` (e.g. `completed`, `preparing`) for routing / filters.
+  final String? apiStatusRaw;
 
   /// When set (from `GET /orders/` rows), detail screen can show real lines.
   final List<Map<String, dynamic>>? itemRows;
@@ -51,6 +55,7 @@ class MyOrderModel {
     final String? created = m['created_at'] as String?;
     final String? notes = m['special_notes'] as String?;
     final String? notesTrim = notes?.trim();
+    final String? statusRaw = _optionalTrimmedStatus(m['status']);
     return MyOrderModel(
       orderNo: '$id',
       tableNo: table > 0 ? 'T$table' : '—',
@@ -63,8 +68,15 @@ class MyOrderModel {
           (notesTrim == null || notesTrim.isEmpty) ? null : notesTrim,
       apiCreatedAtIso:
           (created != null && created.trim().isNotEmpty) ? created.trim() : null,
+      apiStatusRaw: statusRaw,
     );
   }
+}
+
+String? _optionalTrimmedStatus(dynamic raw) {
+  if (raw == null) return null;
+  final String s = '$raw'.trim();
+  return s.isEmpty ? null : s;
 }
 
 int _asInt(dynamic v) {

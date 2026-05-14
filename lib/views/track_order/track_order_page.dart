@@ -1,5 +1,3 @@
-import 'dart:async';
-
 import 'package:flutter/material.dart';
 import 'package:scan2serve/navigation/navigate_to_home.dart';
 import 'package:scan2serve/api/auth_token_store.dart';
@@ -8,7 +6,6 @@ import 'package:scan2serve/models/track_order/order_status_mapping.dart';
 import 'package:scan2serve/models/track_order/track_order_model.dart';
 import 'package:scan2serve/preferences/notification_preferences_store.dart';
 import 'package:scan2serve/session/active_track_order_session.dart';
-import 'package:scan2serve/services/track_order_notify_sound.dart';
 import 'package:scan2serve/viewmodels/track_order/track_order_view_model.dart';
 import 'package:scan2serve/views/chatbot/chatbot_page.dart';
 import 'package:scan2serve/views/profile/profile_page.dart';
@@ -48,9 +45,9 @@ bool _canCancelTrackOrder(TrackOrderModel data) {
   return data.activeStepIndex < blockFromIndex;
 }
 
-bool _isTrackOrderReady(TrackOrderModel data) {
-  if (data.apiStatus != null) {
-    return isOrderReadyFromApiStatus(data.apiStatus);
+bool _isTrackOrderReadyForPickupAlert(TrackOrderModel data) {
+  if (data.apiStatus != null && data.apiStatus!.trim().isNotEmpty) {
+    return isOrderReadyForPickupAlert(data.apiStatus);
   }
   if (data.activeStepIndex < 0 || data.activeStepIndex >= data.steps.length) {
     return false;
@@ -59,13 +56,22 @@ bool _isTrackOrderReady(TrackOrderModel data) {
 }
 
 String _trackOrderReadyMessage(TrackOrderModel data) {
-  return 'Your order #${data.orderNumber} is ready, ${data.customerName}!';
+  final String name = data.customerName.trim();
+  if (name.isEmpty) {
+    return 'Your order #${data.orderNumber} is ready!';
+  }
+  return 'Your order #${data.orderNumber} is ready, $name!';
 }
 
 /// Shown only when push notifications are enabled in Settings.
 String? _trackPushFooterText(TrackOrderModel data, bool pushEnabled) {
   if (!pushEnabled) return null;
-  if (_isTrackOrderReady(data)) {
+  if (data.apiStatus != null && data.apiStatus!.trim().isNotEmpty) {
+    if (isOrderTrackFinished(data.apiStatus)) return null;
+    if (isOrderReadyForPickupAlert(data.apiStatus)) {
+      return _trackOrderReadyMessage(data);
+    }
+  } else if (_isTrackOrderReadyForPickupAlert(data)) {
     return _trackOrderReadyMessage(data);
   }
   return "We'll notify you when your order is ready";
@@ -118,101 +124,6 @@ class _TrackNotifyMessageBox extends StatelessWidget {
         ),
       ),
     );
-  }
-}
-
-/// Plays [TrackOrderNotifySound] once when the order becomes ready and push is on.
-class _TrackReadyChimeListener extends StatefulWidget {
-  const _TrackReadyChimeListener({required this.viewModel});
-
-  final TrackOrderViewModel viewModel;
-
-  @override
-  State<_TrackReadyChimeListener> createState() => _TrackReadyChimeListenerState();
-}
-
-class _TrackReadyChimeListenerState extends State<_TrackReadyChimeListener> {
-  bool _lastShouldChime = false;
-
-  @override
-  void initState() {
-    super.initState();
-    widget.viewModel.addListener(_onTick);
-    pushNotificationsEnabled.addListener(_onTick);
-    WidgetsBinding.instance.addPostFrameCallback((_) => _onTick());
-  }
-
-  @override
-  void dispose() {
-    widget.viewModel.removeListener(_onTick);
-    pushNotificationsEnabled.removeListener(_onTick);
-    super.dispose();
-  }
-
-  void _onTick() {
-    final TrackOrderModel? order = widget.viewModel.trackedOrder;
-    if (order == null) {
-      _lastShouldChime = false;
-      return;
-    }
-    final bool pushOn = pushNotificationsEnabled.value;
-    final bool shouldChime = _isTrackOrderReady(order) && pushOn;
-    if (shouldChime && !_lastShouldChime) {
-      unawaited(TrackOrderNotifySound.play());
-      WidgetsBinding.instance.addPostFrameCallback((_) {
-        if (!mounted) return;
-        showDialog<void>(
-          context: context,
-          barrierDismissible: true,
-          builder: (dialogContext) {
-            return AlertDialog(
-              shape: RoundedRectangleBorder(
-                borderRadius: BorderRadius.circular(20),
-              ),
-              icon: const Icon(
-                Icons.notifications_active_rounded,
-                size: 40,
-                color: _TrackPalette.accentPurple,
-              ),
-              title: const Text(
-                'Order ready',
-                textAlign: TextAlign.center,
-                style: TextStyle(
-                  fontSize: 20,
-                  fontWeight: FontWeight.w800,
-                  color: _TrackPalette.titlePurple,
-                ),
-              ),
-              content: _TrackNotifyMessageBox(
-                message: _trackOrderReadyMessage(order),
-                isReady: true,
-              ),
-              actionsAlignment: MainAxisAlignment.center,
-              actions: [
-                FilledButton(
-                  onPressed: () => Navigator.of(dialogContext).pop(),
-                  style: FilledButton.styleFrom(
-                    backgroundColor: _TrackPalette.accentPurple,
-                    foregroundColor: Colors.white,
-                    padding: const EdgeInsets.symmetric(horizontal: 28, vertical: 12),
-                    shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(14),
-                    ),
-                  ),
-                  child: const Text('OK'),
-                ),
-              ],
-            );
-          },
-        );
-      });
-    }
-    _lastShouldChime = shouldChime;
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    return const SizedBox.shrink();
   }
 }
 
@@ -407,13 +318,15 @@ class _TrackOrderPageState extends State<TrackOrderPage> with WidgetsBindingObse
         }
         final TrackOrderModel data = _viewModel.trackedOrder!;
         final bool canCancel = _canCancelTrackOrder(data);
+        final bool orderFinished = data.apiStatus != null &&
+            data.apiStatus!.trim().isNotEmpty &&
+            isOrderTrackFinished(data.apiStatus);
         return Scaffold(
           backgroundColor: _TrackPalette.screenBg,
           body: SafeArea(
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.stretch,
               children: [
-                _TrackReadyChimeListener(viewModel: _viewModel),
                 _TrackTopBar(
                   title: data.title,
                   onBackTap: () => Navigator.of(context).pop(),
@@ -436,69 +349,85 @@ class _TrackOrderPageState extends State<TrackOrderPage> with WidgetsBindingObse
                           activeIndex: _trackDisplayActiveIndex(data),
                         ),
                         const SizedBox(height: 28),
-                        SizedBox(
-                          width: double.infinity,
-                          child: OutlinedButton.icon(
-                            onPressed: _requestBillSubmitting
-                                ? null
-                                : () => _onRequestBillTap(context),
-                            icon: _requestBillSubmitting
-                                ? const SizedBox(
-                                    width: 20,
-                                    height: 20,
-                                    child: CircularProgressIndicator(strokeWidth: 2),
-                                  )
-                                : const Icon(Icons.receipt_long_rounded, size: 20),
-                            label: Text(_requestBillSubmitting ? 'Requesting…' : 'Request Bill'),
-                            style: OutlinedButton.styleFrom(
-                              foregroundColor: _TrackPalette.titlePurple,
-                              side: BorderSide(
-                                color: _TrackPalette.accentPurple.withValues(alpha: 0.85),
-                              ),
-                              padding: const EdgeInsets.symmetric(vertical: 14),
-                              shape: RoundedRectangleBorder(
-                                borderRadius: BorderRadius.circular(14),
-                              ),
-                            ),
-                          ),
-                        ),
-                        const SizedBox(height: 12),
-                        SizedBox(
-                          width: double.infinity,
-                          child: OutlinedButton.icon(
-                            onPressed: canCancel
-                                ? () => _onCancelOrderTap(context)
-                                : null,
-                            icon: const Icon(Icons.cancel_outlined, size: 20),
-                            label: const Text('Cancel Order'),
-                            style: OutlinedButton.styleFrom(
-                              foregroundColor: canCancel
-                                  ? const Color(0xFFC62828)
-                                  : _TrackPalette.controlDisabled,
-                              side: BorderSide(
-                                color: canCancel
-                                    ? const Color(0xFFE57373)
-                                    : _TrackPalette.cardBorder,
-                              ),
-                              padding: const EdgeInsets.symmetric(vertical: 14),
-                              shape: RoundedRectangleBorder(
-                                borderRadius: BorderRadius.circular(14),
-                              ),
-                            ),
-                          ),
-                        ),
-                        if (!canCancel) ...[
-                          const SizedBox(height: 10),
-                          const Text(
-                            'Cooking has started — this order can’t be cancelled.',
+                        if (orderFinished) ...[
+                          Text(
+                            (data.apiStatus ?? '').trim().toLowerCase() ==
+                                    'cancelled'
+                                ? 'This order was cancelled.'
+                                : 'This order is completed. Thank you! Start a new order anytime from the menu.',
                             textAlign: TextAlign.center,
-                            style: TextStyle(
-                              fontSize: 12.5,
-                              fontWeight: FontWeight.w500,
+                            style: const TextStyle(
+                              fontSize: 15,
+                              fontWeight: FontWeight.w600,
+                              height: 1.4,
                               color: _TrackPalette.bodyTextDark,
-                              height: 1.35,
                             ),
                           ),
+                        ] else ...[
+                          SizedBox(
+                            width: double.infinity,
+                            child: OutlinedButton.icon(
+                              onPressed: _requestBillSubmitting
+                                  ? null
+                                  : () => _onRequestBillTap(context),
+                              icon: _requestBillSubmitting
+                                  ? const SizedBox(
+                                      width: 20,
+                                      height: 20,
+                                      child: CircularProgressIndicator(strokeWidth: 2),
+                                    )
+                                  : const Icon(Icons.receipt_long_rounded, size: 20),
+                              label: Text(_requestBillSubmitting ? 'Requesting…' : 'Request Bill'),
+                              style: OutlinedButton.styleFrom(
+                                foregroundColor: _TrackPalette.titlePurple,
+                                side: BorderSide(
+                                  color: _TrackPalette.accentPurple.withValues(alpha: 0.85),
+                                ),
+                                padding: const EdgeInsets.symmetric(vertical: 14),
+                                shape: RoundedRectangleBorder(
+                                  borderRadius: BorderRadius.circular(14),
+                                ),
+                              ),
+                            ),
+                          ),
+                          const SizedBox(height: 12),
+                          SizedBox(
+                            width: double.infinity,
+                            child: OutlinedButton.icon(
+                              onPressed: canCancel
+                                  ? () => _onCancelOrderTap(context)
+                                  : null,
+                              icon: const Icon(Icons.cancel_outlined, size: 20),
+                              label: const Text('Cancel Order'),
+                              style: OutlinedButton.styleFrom(
+                                foregroundColor: canCancel
+                                    ? const Color(0xFFC62828)
+                                    : _TrackPalette.controlDisabled,
+                                side: BorderSide(
+                                  color: canCancel
+                                      ? const Color(0xFFE57373)
+                                      : _TrackPalette.cardBorder,
+                                ),
+                                padding: const EdgeInsets.symmetric(vertical: 14),
+                                shape: RoundedRectangleBorder(
+                                  borderRadius: BorderRadius.circular(14),
+                                ),
+                              ),
+                            ),
+                          ),
+                          if (!canCancel) ...[
+                            const SizedBox(height: 10),
+                            const Text(
+                              'Cooking has started — this order can’t be cancelled.',
+                              textAlign: TextAlign.center,
+                              style: TextStyle(
+                                fontSize: 12.5,
+                                fontWeight: FontWeight.w500,
+                                color: _TrackPalette.bodyTextDark,
+                                height: 1.35,
+                              ),
+                            ),
+                          ],
                         ],
                         ValueListenableBuilder<bool>(
                           valueListenable: pushNotificationsEnabled,
@@ -515,7 +444,10 @@ class _TrackOrderPageState extends State<TrackOrderPage> with WidgetsBindingObse
                                 const SizedBox(height: 32),
                                 _TrackNotifyMessageBox(
                                   message: footer,
-                                  isReady: _isTrackOrderReady(data),
+                                  isReady: data.apiStatus != null &&
+                                          data.apiStatus!.trim().isNotEmpty
+                                      ? isOrderReadyForPickupAlert(data.apiStatus)
+                                      : _isTrackOrderReadyForPickupAlert(data),
                                 ),
                               ],
                             );

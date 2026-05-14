@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:scan2serve/api/auth_token_store.dart';
 import 'package:scan2serve/api/favourites_api.dart';
@@ -37,11 +39,12 @@ class HomePage extends StatefulWidget {
   State<HomePage> createState() => _HomePageState();
 }
 
-class _HomePageState extends State<HomePage> {
+class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
   late final HomeViewModel _viewModel;
   final GlobalKey<ScaffoldState> _scaffoldKey = GlobalKey<ScaffoldState>();
   late final TextEditingController _searchController;
   late final FocusNode _searchFocusNode;
+  Timer? _menuPollTimer;
 
   /// Keyboard / IME toolbar (e.g. Gboard strip) only after user taps search — not on load.
   bool _searchEditing = false;
@@ -49,10 +52,22 @@ class _HomePageState extends State<HomePage> {
   @override
   void initState() {
     super.initState();
+    WidgetsBinding.instance.addObserver(this);
     _viewModel = HomeViewModel();
     _searchController = TextEditingController();
     _searchFocusNode = FocusNode();
     _searchFocusNode.addListener(_onSearchFocusChanged);
+    _menuPollTimer = Timer.periodic(const Duration(seconds: 5), (_) {
+      if (!mounted) return;
+      unawaited(_viewModel.loadMenuFromApi(silent: true));
+    });
+  }
+
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    if (state == AppLifecycleState.resumed && mounted) {
+      unawaited(_viewModel.loadMenuFromApi(silent: true));
+    }
   }
 
   void _onSearchFocusChanged() {
@@ -70,6 +85,8 @@ class _HomePageState extends State<HomePage> {
 
   @override
   void dispose() {
+    _menuPollTimer?.cancel();
+    WidgetsBinding.instance.removeObserver(this);
     _searchFocusNode.removeListener(_onSearchFocusChanged);
     _searchFocusNode.dispose();
     _searchController.dispose();
@@ -112,7 +129,7 @@ class _HomePageState extends State<HomePage> {
                     child: Padding(
                       padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
                       child: Text(
-                        'Menu: ${_viewModel.menuLoadError} (showing offline sample)',
+                        'Menu: ${_viewModel.menuLoadError}',
                         style: const TextStyle(fontSize: 12, color: Color(0xFF5D4037)),
                       ),
                     ),
@@ -121,7 +138,10 @@ class _HomePageState extends State<HomePage> {
                   child: Stack(
                     clipBehavior: Clip.none,
                     children: [
-                      CustomScrollView(
+                      RefreshIndicator(
+                        onRefresh: () =>
+                            _viewModel.loadMenuFromApi(silent: true),
+                        child: CustomScrollView(
                         physics: const AlwaysScrollableScrollPhysics(
                           parent: BouncingScrollPhysics(),
                         ),
@@ -160,19 +180,23 @@ class _HomePageState extends State<HomePage> {
                                     showClear: searching,
                                   ),
                                   const SizedBox(height: 20),
-                                  _TabStrip(
-                                    tabs: tabs,
-                                    activeTab: activeTab,
-                                    onTabTap: (tab) {
-                                      _blurSearch();
-                                      _viewModel.onTabSelected(tab);
-                                    },
-                                  ),
-                                  const SizedBox(height: 16),
+                                  if (tabs.isNotEmpty) ...[
+                                    _TabStrip(
+                                      tabs: tabs,
+                                      activeTab: activeTab,
+                                      onTabTap: (tab) {
+                                        _blurSearch();
+                                        _viewModel.onTabSelected(tab);
+                                      },
+                                    ),
+                                    const SizedBox(height: 16),
+                                  ],
                                   Text(
                                     searching
                                         ? 'Search results (${items.length})'
-                                        : activeTab,
+                                        : (tabs.isEmpty
+                                            ? 'Menu'
+                                            : activeTab),
                                     style: const TextStyle(
                                       fontSize: 22,
                                       fontWeight: FontWeight.w700,
@@ -196,7 +220,11 @@ class _HomePageState extends State<HomePage> {
                                         child: Text(
                                           searching
                                               ? 'No dishes match your search'
-                                              : 'No items in this category',
+                                              : (_viewModel.menuLoadError != null
+                                                  ? 'Menu could not be loaded.'
+                                                  : (tabs.isEmpty
+                                                      ? 'No menu available yet.'
+                                                      : 'No items in this category')),
                                           textAlign: TextAlign.center,
                                           style: TextStyle(
                                             fontSize: 16,
@@ -235,6 +263,7 @@ class _HomePageState extends State<HomePage> {
                           ),
                           const SliverToBoxAdapter(child: SizedBox(height: 12)),
                         ],
+                      ),
                       ),
                       Align(
                         alignment: Alignment.bottomCenter,
@@ -279,6 +308,9 @@ class _HomePageState extends State<HomePage> {
 
   void _handleBottomNavTap(String nav) {
     _blurSearch();
+    if (nav == 'Home') {
+      unawaited(_viewModel.loadMenuFromApi(silent: true));
+    }
     _viewModel.onBottomNavTap(nav);
     if (nav == 'Home') {
       return;
@@ -299,11 +331,15 @@ class _HomePageState extends State<HomePage> {
 
   void _openFoodDetails(MenuItemModel item) {
     _blurSearch();
-    Navigator.of(context).push(
+    Navigator.of(context)
+        .push<void>(
       MaterialPageRoute<void>(
         builder: (_) => FoodDetailsPage(item: item, homeViewModel: _viewModel),
       ),
-    );
+    )
+        .then((_) {
+      if (mounted) unawaited(_viewModel.loadMenuFromApi(silent: true));
+    });
   }
 
   void _onDrawerItemTap(String id) {

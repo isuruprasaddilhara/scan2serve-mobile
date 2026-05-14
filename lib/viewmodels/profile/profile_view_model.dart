@@ -3,14 +3,15 @@ import 'package:scan2serve/api/auth_token_store.dart';
 import 'package:scan2serve/models/profile/profile_model.dart';
 
 class ProfileViewModel extends ChangeNotifier {
-  ProfileViewModel() : viewData = ProfileViewModel.demoData;
+  ProfileViewModel() : viewData = ProfileViewModel.defaultViewData;
 
-  static const ProfileModel demoData = ProfileModel(
+  /// Labels and menu structure only — no placeholder user or dish names.
+  static const ProfileModel defaultViewData = ProfileModel(
     title: 'Profile',
-    userName: 'John Doe',
-    email: 'john@example.com',
+    userName: '',
+    email: '',
     ordersCount: 0,
-    favouriteFood: 'Egg Fried Rice',
+    favouriteFood: '',
     editProfileLabel: 'Edit Profile',
     logoutLabel: 'Log out',
     menuRows: [

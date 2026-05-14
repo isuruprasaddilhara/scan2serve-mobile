@@ -1,6 +1,10 @@
 import 'package:flutter/material.dart';
 import 'package:scan2serve/models/chatbot/chatbot_model.dart';
+import 'package:scan2serve/models/home/home_model.dart';
+import 'package:scan2serve/session/active_track_order_session.dart';
 import 'package:scan2serve/viewmodels/chatbot/chatbot_view_model.dart';
+import 'package:scan2serve/views/food/food_details_page.dart';
+import 'package:scan2serve/views/track_order/track_order_page.dart';
 import 'package:scan2serve/widgets/dish_image.dart';
 
 /// Reference: soft lavender chat, white quick actions, carousel + dots, capsule input.
@@ -12,6 +16,8 @@ abstract final class _ChatUi {
   static const Color titlePurple = Color(0xFF3D2F5C);
   static const Color quickBorder = Color(0xFFE8E0F0);
   static const Color sendPurple = Color(0xFF9B77D6);
+  static const Color dishCardBg = Color(0xFFF7F2FC);
+  static const Color dishCardBorder = Color(0xFFE8E0F0);
   static const Color closeGrey = Color(0xFF8A8099);
 }
 
@@ -42,6 +48,60 @@ class _ChatbotPageState extends State<ChatbotPage> {
         curve: Curves.easeOut,
       );
     });
+  }
+
+  void _openTrackOrderPage(BuildContext context) {
+    final int? oid = activeTrackOrderId.value;
+    final String? guest = activeTrackGuestToken.value;
+    final Widget page = oid != null
+        ? TrackOrderPage(orderId: oid, guestToken: guest)
+        : const TrackOrderPage();
+    Navigator.of(context)
+        .push<void>(MaterialPageRoute<void>(builder: (_) => page));
+  }
+
+  void _openFoodDetailsFromChatItem(ChatProductItem item) {
+    final MenuItemModel m = MenuItemModel(
+      name: item.name,
+      priceLabel: item.priceLabel,
+      description: item.description,
+      menuItemId: item.menuItemId,
+      imageUrl: item.imageUrl,
+    );
+    Navigator.of(context).push<void>(
+      MaterialPageRoute<void>(
+        builder: (_) => FoodDetailsPage(item: m),
+      ),
+    );
+  }
+
+  void _showDishMoreActions(BuildContext context, ChatProductItem item) {
+    showModalBottomSheet<void>(
+      context: context,
+      backgroundColor: const Color(0xFFF8F4FF),
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(18)),
+      ),
+      builder: (ctx) => SafeArea(
+        child: Padding(
+          padding: const EdgeInsets.symmetric(vertical: 8),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              ListTile(
+                leading: const Icon(Icons.restaurant_menu_rounded,
+                    color: Color(0xFF3D2F5C)),
+                title: const Text('View details'),
+                onTap: () {
+                  Navigator.of(ctx).pop();
+                  _openFoodDetailsFromChatItem(item);
+                },
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
   }
 
   @override
@@ -81,7 +141,20 @@ class _ChatbotPageState extends State<ChatbotPage> {
                           entry: _viewModel.entries[index],
                           avatarAsset: data.avatarAsset,
                           quickRepliesEnabled: !_viewModel.isSending,
+                          onFoodItemTap: _openFoodDetailsFromChatItem,
+                          onFoodItemMore: (item) =>
+                              _showDishMoreActions(context, item),
+                          onFaqTopic: (display, prompt) {
+                            final f = _viewModel.submitFaqTopicAnswer(
+                                display, prompt);
+                            f.ignore();
+                          },
                           onQuickReply: (label) {
+                            if (label ==
+                                ChatbotViewModel.quickReplyTrackOrder) {
+                              _openTrackOrderPage(context);
+                              return;
+                            }
                             final f = _viewModel.onQuickReply(label);
                             f.ignore();
                           },
@@ -163,7 +236,8 @@ class _ChatHeader extends StatelessWidget {
                 errorBuilder: (_, __, ___) => Container(
                   color: Colors.white.withValues(alpha: 0.3),
                   alignment: Alignment.center,
-                  child: const Icon(Icons.restaurant_rounded, color: Colors.white),
+                  child:
+                      const Icon(Icons.restaurant_rounded, color: Colors.white),
                 ),
               ),
             ),
@@ -210,12 +284,18 @@ class _ChatEntryWidget extends StatelessWidget {
     required this.avatarAsset,
     required this.quickRepliesEnabled,
     required this.onQuickReply,
+    required this.onFoodItemTap,
+    required this.onFoodItemMore,
+    required this.onFaqTopic,
   });
 
   final ChatListEntry entry;
   final String avatarAsset;
   final bool quickRepliesEnabled;
   final void Function(String) onQuickReply;
+  final void Function(ChatProductItem item) onFoodItemTap;
+  final void Function(ChatProductItem item) onFoodItemMore;
+  final void Function(String displayLabel, String apiPrompt) onFaqTopic;
 
   @override
   Widget build(BuildContext context) {
@@ -239,8 +319,314 @@ class _ChatEntryWidget extends StatelessWidget {
           description: description,
           imageUrl: imageUrl,
         ),
-      ChatProductCarouselEntry(:final items) => _ProductCarousel(items: items),
+      ChatProductCarouselEntry(:final items) => _ProductCarousel(
+          items: items,
+          onOpenItem: onFoodItemTap,
+          onMoreItem: onFoodItemMore,
+        ),
+      ChatFaqTabsEntry() => _ChatFaqTabsRow(
+          avatarAsset: avatarAsset,
+          enabled: quickRepliesEnabled,
+          onTopic: onFaqTopic,
+        ),
+      ChatFaqAnswerEntry(:final pairs) =>
+        _ChatFaqAnswerRow(avatarAsset: avatarAsset, pairs: pairs),
     };
+  }
+}
+
+class _ChatFaqTabsRow extends StatelessWidget {
+  const _ChatFaqTabsRow({
+    required this.avatarAsset,
+    required this.enabled,
+    required this.onTopic,
+  });
+
+  final String avatarAsset;
+  final bool enabled;
+  final void Function(String displayLabel, String apiPrompt) onTopic;
+
+  static const String _tab0Display =
+      'Using Scan2Serve\n(app, orders & service)';
+  static const String _tab1Display = 'Food, allergens &\ndietary needs';
+
+  static const String _tab0Prompt =
+      'You are helping a Scan2Serve food-ordering app customer. '
+      'Topic: Using Scan2Serve — the mobile app, menu, cart & checkout, tracking orders, '
+      'pickup, payments, accounts, and guest checkout.\n\n'
+      'Reply ONLY using 6–10 blocks in this exact pattern (plain text, no markdown headings, '
+      'no text before the first Q:). Each question must be a full sentence ending with ?\n\n'
+      'Q: First clear customer question here?\n'
+      'A: Short helpful answer. You may use 1–3 sentences.\n\n'
+      'Q: Second question?\n'
+      'A: Answer here.\n\n'
+      '(repeat Q:/A: pairs only. Do not use bullet lists instead of Q:/A:.)';
+
+  static const String _tab1Prompt =
+      'You are helping a Scan2Serve food-ordering app customer. '
+      'Topic: Food information, allergens, and dietary needs (vegetarian, vegan, halal, etc.). '
+      'Remind the user to confirm serious allergies with restaurant staff.\n\n'
+      'Reply ONLY using 6–10 blocks in this exact pattern (plain text, no markdown headings, '
+      'no text before the first Q:). Each question must be a full sentence ending with ?\n\n'
+      'Q: First clear customer question here?\n'
+      'A: Short helpful answer. You may use 1–3 sentences.\n\n'
+      'Q: Second question?\n'
+      'A: Answer here.\n\n'
+      '(repeat Q:/A: pairs only. Do not use bullet lists instead of Q:/A:.)';
+
+  @override
+  Widget build(BuildContext context) {
+    return Row(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Container(
+          decoration: BoxDecoration(
+            shape: BoxShape.circle,
+            boxShadow: [
+              BoxShadow(
+                color: const Color(0xFF6B5A8F).withValues(alpha: 0.12),
+                blurRadius: 6,
+                offset: const Offset(0, 2),
+              ),
+            ],
+          ),
+          child: ClipOval(
+            child: Image.asset(
+              avatarAsset,
+              width: 42,
+              height: 42,
+              fit: BoxFit.cover,
+              errorBuilder: (_, __, ___) => Container(
+                width: 42,
+                height: 42,
+                color: const Color(0xFFD8CDF3),
+                alignment: Alignment.center,
+                child: const Icon(Icons.support_agent_rounded, size: 22),
+              ),
+            ),
+          ),
+        ),
+        const SizedBox(width: 10),
+        Expanded(
+          child: Row(
+            children: [
+              Expanded(
+                child: _FaqTopicButton(
+                  label: _tab0Display,
+                  enabled: enabled,
+                  onPressed: () => onTopic(_tab0Display, _tab0Prompt),
+                ),
+              ),
+              const SizedBox(width: 8),
+              Expanded(
+                child: _FaqTopicButton(
+                  label: _tab1Display,
+                  enabled: enabled,
+                  onPressed: () => onTopic(_tab1Display, _tab1Prompt),
+                ),
+              ),
+            ],
+          ),
+        ),
+      ],
+    );
+  }
+}
+
+class _FaqTopicButton extends StatelessWidget {
+  const _FaqTopicButton({
+    required this.label,
+    required this.enabled,
+    required this.onPressed,
+  });
+
+  final String label;
+  final bool enabled;
+  final VoidCallback onPressed;
+
+  @override
+  Widget build(BuildContext context) {
+    return Material(
+      color: Colors.white,
+      borderRadius: BorderRadius.circular(14),
+      child: InkWell(
+        onTap: enabled ? onPressed : null,
+        borderRadius: BorderRadius.circular(14),
+        child: Container(
+          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 12),
+          decoration: BoxDecoration(
+            borderRadius: BorderRadius.circular(14),
+            border: Border.all(color: _ChatUi.quickBorder),
+            boxShadow: [
+              BoxShadow(
+                color: const Color(0xFF6B5A8F).withValues(alpha: 0.05),
+                blurRadius: 6,
+                offset: const Offset(0, 2),
+              ),
+            ],
+          ),
+          child: Text(
+            label,
+            textAlign: TextAlign.center,
+            maxLines: 4,
+            overflow: TextOverflow.ellipsis,
+            style: TextStyle(
+              fontSize: 11.5,
+              fontWeight: FontWeight.w700,
+              height: 1.25,
+              color: enabled ? _ChatUi.titlePurple : Colors.grey.shade500,
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class _ChatFaqAnswerRow extends StatelessWidget {
+  const _ChatFaqAnswerRow({
+    required this.avatarAsset,
+    required this.pairs,
+  });
+
+  final String avatarAsset;
+  final List<ChatFaqQaPair> pairs;
+
+  @override
+  Widget build(BuildContext context) {
+    return Row(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Container(
+          decoration: BoxDecoration(
+            shape: BoxShape.circle,
+            boxShadow: [
+              BoxShadow(
+                color: const Color(0xFF6B5A8F).withValues(alpha: 0.12),
+                blurRadius: 6,
+                offset: const Offset(0, 2),
+              ),
+            ],
+          ),
+          child: ClipOval(
+            child: Image.asset(
+              avatarAsset,
+              width: 42,
+              height: 42,
+              fit: BoxFit.cover,
+              errorBuilder: (_, __, ___) => Container(
+                width: 42,
+                height: 42,
+                color: const Color(0xFFD8CDF3),
+                alignment: Alignment.center,
+                child: const Icon(Icons.support_agent_rounded, size: 22),
+              ),
+            ),
+          ),
+        ),
+        const SizedBox(width: 10),
+        Expanded(
+          child: ConstrainedBox(
+            constraints: const BoxConstraints(maxHeight: 440),
+            child: Scrollbar(
+              thumbVisibility: true,
+              child: SingleChildScrollView(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                  children: [
+                    for (int i = 0; i < pairs.length; i++) ...[
+                      if (i > 0) const SizedBox(height: 10),
+                      _FaqQaCard(pair: pairs[i]),
+                    ],
+                  ],
+                ),
+              ),
+            ),
+          ),
+        ),
+      ],
+    );
+  }
+}
+
+class _FaqQaCard extends StatelessWidget {
+  const _FaqQaCard({required this.pair});
+
+  final ChatFaqQaPair pair;
+
+  @override
+  Widget build(BuildContext context) {
+    return Material(
+      color: _ChatUi.dishCardBg,
+      borderRadius: BorderRadius.circular(16),
+      elevation: 0,
+      child: Container(
+        width: double.infinity,
+        padding: const EdgeInsets.fromLTRB(14, 14, 14, 14),
+        decoration: BoxDecoration(
+          borderRadius: BorderRadius.circular(16),
+          border: Border.all(color: _ChatUi.dishCardBorder),
+          boxShadow: [
+            BoxShadow(
+              color: const Color(0xFF6B5A8F).withValues(alpha: 0.06),
+              blurRadius: 10,
+              offset: const Offset(0, 3),
+            ),
+          ],
+        ),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(
+              'Question',
+              style: TextStyle(
+                fontSize: 11,
+                fontWeight: FontWeight.w700,
+                letterSpacing: 0.4,
+                color: Colors.grey.shade600,
+              ),
+            ),
+            const SizedBox(height: 4),
+            Text(
+              pair.question,
+              style: const TextStyle(
+                fontSize: 15.5,
+                fontWeight: FontWeight.w800,
+                height: 1.25,
+                color: _ChatUi.titlePurple,
+              ),
+            ),
+            Padding(
+              padding: const EdgeInsets.symmetric(vertical: 10),
+              child: Divider(
+                height: 1,
+                thickness: 1,
+                color: _ChatUi.quickBorder.withValues(alpha: 0.85),
+              ),
+            ),
+            Text(
+              'Answer',
+              style: TextStyle(
+                fontSize: 11,
+                fontWeight: FontWeight.w700,
+                letterSpacing: 0.4,
+                color: Colors.grey.shade600,
+              ),
+            ),
+            const SizedBox(height: 4),
+            Text(
+              pair.answer,
+              style: const TextStyle(
+                fontSize: 14,
+                fontWeight: FontWeight.w500,
+                height: 1.45,
+                color: _ChatUi.botText,
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
   }
 }
 
@@ -428,9 +814,15 @@ class _QuickReplyColumn extends StatelessWidget {
 }
 
 class _ProductCarousel extends StatefulWidget {
-  const _ProductCarousel({required this.items});
+  const _ProductCarousel({
+    required this.items,
+    required this.onOpenItem,
+    required this.onMoreItem,
+  });
 
   final List<ChatProductItem> items;
+  final void Function(ChatProductItem item) onOpenItem;
+  final void Function(ChatProductItem item) onMoreItem;
 
   @override
   State<_ProductCarousel> createState() => _ProductCarouselState();
@@ -443,7 +835,7 @@ class _ProductCarouselState extends State<_ProductCarousel> {
   @override
   void initState() {
     super.initState();
-    _pageController = PageController(viewportFraction: 0.88);
+    _pageController = PageController(viewportFraction: 0.48);
   }
 
   @override
@@ -460,16 +852,22 @@ class _ProductCarouselState extends State<_ProductCarousel> {
     return Column(
       children: [
         SizedBox(
-          height: 292,
+          height: 268,
           child: PageView.builder(
             controller: _pageController,
             itemCount: items.length,
+            padEnds: false,
             onPageChanged: (i) => setState(() => _page = i),
             itemBuilder: (context, index) {
               final ChatProductItem p = items[index];
               return Padding(
-                padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 4),
-                child: _CarouselProductCard(item: p),
+                padding:
+                    const EdgeInsets.only(left: 6, right: 6, top: 4, bottom: 4),
+                child: _CarouselProductCard(
+                  item: p,
+                  onOpenDetails: () => widget.onOpenItem(p),
+                  onMore: () => widget.onMoreItem(p),
+                ),
               );
             },
           ),
@@ -487,9 +885,8 @@ class _ProductCarouselState extends State<_ProductCarousel> {
                 height: 7,
                 decoration: BoxDecoration(
                   borderRadius: BorderRadius.circular(4),
-                  color: i == _page
-                      ? _ChatUi.sendPurple
-                      : const Color(0xFFCFC6DC),
+                  color:
+                      i == _page ? _ChatUi.sendPurple : const Color(0xFFCFC6DC),
                 ),
               ),
             ),
@@ -501,78 +898,115 @@ class _ProductCarouselState extends State<_ProductCarousel> {
 }
 
 class _CarouselProductCard extends StatelessWidget {
-  const _CarouselProductCard({required this.item});
+  const _CarouselProductCard({
+    required this.item,
+    required this.onOpenDetails,
+    required this.onMore,
+  });
 
   final ChatProductItem item;
+  final VoidCallback onOpenDetails;
+  final VoidCallback onMore;
 
   @override
   Widget build(BuildContext context) {
-    return Container(
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(20),
-        boxShadow: [
-          BoxShadow(
-            color: const Color(0xFF6B5A8F).withValues(alpha: 0.1),
-            blurRadius: 16,
-            offset: const Offset(0, 6),
-          ),
-        ],
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.stretch,
-        children: [
-          Expanded(
-            flex: 3,
-            child: DishImageCover(
-              imageUrl: item.imageUrl,
-              borderRadius: const BorderRadius.vertical(top: Radius.circular(20)),
-            ),
-          ),
-          Expanded(
-            flex: 2,
-            child: Padding(
-              padding: const EdgeInsets.fromLTRB(14, 12, 14, 14),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    item.name,
-                    style: const TextStyle(
-                      fontSize: 16,
-                      fontWeight: FontWeight.w800,
-                      color: Color(0xFF1A1520),
-                    ),
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
-                  ),
-                  const SizedBox(height: 6),
-                  Text(
-                    item.priceLabel,
-                    style: const TextStyle(
-                      fontSize: 15,
-                      fontWeight: FontWeight.w800,
-                      color: Color(0xFF3D2F5C),
-                    ),
-                  ),
-                  const SizedBox(height: 4),
-                  Expanded(
-                    child: Text(
-                      item.description,
-                      style: const TextStyle(
-                        fontSize: 13,
-                        color: _ChatUi.botText,
-                        height: 1.3,
-                      ),
-                      maxLines: 2,
-                      overflow: TextOverflow.ellipsis,
-                    ),
-                  ),
-                ],
+    return Material(
+      color: _ChatUi.dishCardBg,
+      elevation: 0,
+      borderRadius: BorderRadius.circular(16),
+      clipBehavior: Clip.antiAlias,
+      child: InkWell(
+        onTap: onOpenDetails,
+        child: Container(
+          decoration: BoxDecoration(
+            borderRadius: BorderRadius.circular(16),
+            border: Border.all(color: _ChatUi.dishCardBorder),
+            boxShadow: [
+              BoxShadow(
+                color: const Color(0xFF6B5A8F).withValues(alpha: 0.06),
+                blurRadius: 10,
+                offset: const Offset(0, 3),
               ),
-            ),
+            ],
           ),
-        ],
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              Expanded(
+                flex: 11,
+                child: ClipRRect(
+                  borderRadius:
+                      const BorderRadius.vertical(top: Radius.circular(15)),
+                  child: DishImageCover(
+                    imageUrl: item.imageUrl,
+                    fit: BoxFit.cover,
+                    backgroundColor: const Color(0xFFECE4F5),
+                  ),
+                ),
+              ),
+              Expanded(
+                flex: 10,
+                child: Padding(
+                  padding: const EdgeInsets.fromLTRB(12, 10, 6, 8),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        item.name,
+                        style: const TextStyle(
+                          fontSize: 15,
+                          fontWeight: FontWeight.w800,
+                          color: Color(0xFF2E2440),
+                        ),
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                      ),
+                      const SizedBox(height: 4),
+                      Text(
+                        item.priceLabel,
+                        style: const TextStyle(
+                          fontSize: 14,
+                          fontWeight: FontWeight.w800,
+                          color: Color(0xFF3D2F5C),
+                        ),
+                      ),
+                      const SizedBox(height: 4),
+                      Expanded(
+                        child: Text(
+                          item.description.trim().isEmpty
+                              ? ' '
+                              : item.description,
+                          style: const TextStyle(
+                            fontSize: 12.5,
+                            color: _ChatUi.botText,
+                            fontWeight: FontWeight.w500,
+                            height: 1.3,
+                          ),
+                          maxLines: 2,
+                          overflow: TextOverflow.ellipsis,
+                        ),
+                      ),
+                      Align(
+                        alignment: Alignment.centerRight,
+                        child: IconButton(
+                          onPressed: onMore,
+                          icon: Icon(Icons.more_horiz_rounded,
+                              color: Colors.grey.shade600),
+                          style: IconButton.styleFrom(
+                            tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                            minimumSize: const Size(36, 32),
+                            padding: EdgeInsets.zero,
+                          ),
+                          tooltip: 'More',
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+            ],
+          ),
+        ),
       ),
     );
   }

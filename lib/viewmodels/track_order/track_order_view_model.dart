@@ -109,8 +109,8 @@ class TrackOrderViewModel extends ChangeNotifier {
     if (jwt != null && jwt.isNotEmpty) {
       try {
         final List<MyOrderModel> orders = await fetchMyOrdersList();
-        if (orders.isNotEmpty) {
-          final MyOrderModel o = orders.first;
+        for (final MyOrderModel o in orders) {
+          if (isOrderTrackFinished(o.apiStatusRaw)) continue;
           final int? oid = o.orderIdParsed ?? int.tryParse(o.orderNo);
           if (oid != null && oid > 0) {
             _trackingOrderId = oid;
@@ -127,6 +127,16 @@ class TrackOrderViewModel extends ChangeNotifier {
     _loadError = null;
     if (!_disposed) {
       notifyListeners();
+    }
+  }
+
+  void _clearTrackSessionIfCurrentOrderFinished() {
+    final int? tid = _trackingOrderId;
+    final TrackOrderModel? m = _model;
+    if (tid == null || m == null) return;
+    if (!isOrderTrackFinished(m.apiStatus)) return;
+    if (activeTrackOrderId.value == tid) {
+      clearActiveTrackOrderSession();
     }
   }
 
@@ -158,6 +168,7 @@ class TrackOrderViewModel extends ChangeNotifier {
         customerName: _customerName,
       );
       _loadError = null;
+      _clearTrackSessionIfCurrentOrderFinished();
     } on OrdersApiException catch (e) {
       _loadError =
           parseOrdersErrorMessage(e.body) ?? 'Could not load order (${e.statusCode}).';
@@ -192,6 +203,7 @@ class TrackOrderViewModel extends ChangeNotifier {
         customerName: _customerName,
       );
       _loadError = null;
+      _clearTrackSessionIfCurrentOrderFinished();
       if (isTerminalTrackPollingStatus(_model?.apiStatus)) {
         _stopPolling();
       }
@@ -222,6 +234,7 @@ class TrackOrderViewModel extends ChangeNotifier {
         customerName: _customerName,
       );
       _loadError = null;
+      _clearTrackSessionIfCurrentOrderFinished();
       if (isTerminalTrackPollingStatus(_model?.apiStatus)) {
         _stopPolling();
       }

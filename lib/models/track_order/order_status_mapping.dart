@@ -32,10 +32,12 @@ String trackOrderStatusHeadline(String? status) {
       return 'Status: Accepted';
     case 'preparing':
       return 'Status: Preparing';
-    case 'served':
-    case 'requested':
     case 'completed':
+      return 'Status: Order completed';
+    case 'requested':
+      return 'Status: Bill requested';
     case 'ready':
+    case 'served':
       return 'Status: Ready to collect';
     case 'cancelled':
       return 'Status: Cancelled';
@@ -50,16 +52,25 @@ String trackOrderStatusHeadline(String? status) {
   }
 }
 
-bool isOrderReadyFromApiStatus(String? status) {
-  switch (_normStatus(status)) {
-    case 'served':
-    case 'requested':
-    case 'completed':
-    case 'ready':
-      return true;
-    default:
-      return false;
+/// Order is fully closed (no more kitchen / pickup updates).
+bool isOrderTrackFinished(String? status) {
+  final String s = _normStatus(status);
+  return s == 'completed' || s == 'cancelled';
+}
+
+/// Chime + "Order ready" dialog: only when the venue says food is ready for pickup,
+/// not after [completed] or for [requested] (bill) flows.
+bool isOrderReadyForPickupAlert(String? status) {
+  final String s = _normStatus(status);
+  if (s.isEmpty) return false;
+  if (s == 'completed' ||
+      s == 'cancelled' ||
+      s == 'requested' ||
+      s == 'pending' ||
+      s == 'preparing') {
+    return false;
   }
+  return s == 'ready' || s == 'served';
 }
 
 bool canCancelOrderFromApiStatus(String? status) {
@@ -67,7 +78,7 @@ bool canCancelOrderFromApiStatus(String? status) {
   return _normStatus(status) == 'pending';
 }
 
-/// Live polling can stop once the order is finished or cancelled.
+/// Live polling stops once the order is closed out for the customer.
 bool isTerminalTrackPollingStatus(String? status) {
-  return isOrderReadyFromApiStatus(status) || _normStatus(status) == 'cancelled';
+  return isOrderTrackFinished(status);
 }

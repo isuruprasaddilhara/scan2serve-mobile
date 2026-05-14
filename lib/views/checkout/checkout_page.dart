@@ -184,44 +184,23 @@ class _CheckoutPageState extends State<CheckoutPage> {
                 ),
               ),
               const SizedBox(height: 20),
-              Row(
-                children: [
-                  Expanded(
-                    child: OutlinedButton(
-                      onPressed: () => Navigator.of(dialogContext).pop(false),
-                      style: OutlinedButton.styleFrom(
-                        side: const BorderSide(color: _CheckoutUi.accentPurple),
-                        foregroundColor: _CheckoutUi.accentPurple,
-                        shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(10),
-                        ),
-                        padding: const EdgeInsets.symmetric(vertical: 12),
-                      ),
-                      child: const Text(
-                        'Stay',
-                        style: TextStyle(fontWeight: FontWeight.w700),
-                      ),
+              SizedBox(
+                width: double.infinity,
+                child: ElevatedButton(
+                  onPressed: () => Navigator.of(dialogContext).pop(true),
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: _CheckoutUi.accentPurple,
+                    foregroundColor: const Color(0xFF1A1520),
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(10),
                     ),
+                    padding: const EdgeInsets.symmetric(vertical: 12),
                   ),
-                  const SizedBox(width: 10),
-                  Expanded(
-                    child: ElevatedButton(
-                      onPressed: () => Navigator.of(dialogContext).pop(true),
-                      style: ElevatedButton.styleFrom(
-                        backgroundColor: _CheckoutUi.accentPurple,
-                        foregroundColor: const Color(0xFF1A1520),
-                        shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(10),
-                        ),
-                        padding: const EdgeInsets.symmetric(vertical: 12),
-                      ),
-                      child: const Text(
-                        'OK',
-                        style: TextStyle(fontWeight: FontWeight.w700),
-                      ),
-                    ),
+                  child: const Text(
+                    'OK',
+                    style: TextStyle(fontWeight: FontWeight.w700),
                   ),
-                ],
+                ),
               ),
             ],
           ),
