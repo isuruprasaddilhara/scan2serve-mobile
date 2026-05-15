@@ -37,6 +37,44 @@ Future<List<Map<String, dynamic>>> fetchMenuItems() async {
   return decoded.cast<Map<String, dynamic>>();
 }
 
+/// Whether a menu item row should appear to customers.
+/// Treats missing / unknown as available so minor API shape differences do not hide everything.
+bool menuItemIsAvailableForDisplay(Map<String, dynamic> json) {
+  for (final String key in <String>[
+    'availability',
+    'is_available',
+    'available',
+  ]) {
+    final dynamic v = json[key];
+    if (v == null) continue;
+    if (v is bool) {
+      return v;
+    }
+    if (v is num) {
+      return v != 0;
+    }
+    if (v is String) {
+      final String s = v.trim().toLowerCase();
+      if (s.isEmpty) continue;
+      if (s == 'false' ||
+          s == '0' ||
+          s == 'no' ||
+          s == 'unavailable' ||
+          s == 'inactive') {
+        return false;
+      }
+      if (s == 'true' ||
+          s == '1' ||
+          s == 'yes' ||
+          s == 'available' ||
+          s == 'active') {
+        return true;
+      }
+    }
+  }
+  return true;
+}
+
 String? _stringField(Map<String, dynamic> json, List<String> keys) {
   for (final k in keys) {
     final v = json[k];

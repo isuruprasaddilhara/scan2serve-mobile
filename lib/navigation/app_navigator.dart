@@ -4,7 +4,8 @@ import 'package:scan2serve/api/auth_token_store.dart';
 /// Assign to [MaterialApp.navigatorKey]. Session expiry uses [routeWelcome] only (no import cycle).
 final GlobalKey<NavigatorState> rootNavigatorKey = GlobalKey<NavigatorState>();
 
-/// Must match [MaterialApp.routes] entry used after forced logout.
+/// Cold start shows [routeWelcomeAnimation] first; auth logout lands on [routeWelcome].
+const String routeWelcomeAnimation = '/welcome-animation';
 const String routeWelcome = '/';
 
 bool _logoutInProgress = false;

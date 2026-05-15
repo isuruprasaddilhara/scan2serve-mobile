@@ -19,12 +19,15 @@ class ChatProductItem {
     required this.priceLabel,
     required this.description,
     this.imageUrl,
+    this.menuItemId,
   });
 
   final String name;
   final String priceLabel;
   final String description;
   final String? imageUrl;
+  /// From `/menu/items/` when shown from the in-chat catalog.
+  final int? menuItemId;
 }
 
 sealed class ChatListEntry {}
@@ -62,4 +65,24 @@ final class ChatProductCarouselEntry extends ChatListEntry {
   ChatProductCarouselEntry({required this.items});
 
   final List<ChatProductItem> items;
+}
+
+/// Two-topic FAQ buttons; each tap sends a topic prompt to the chat API.
+final class ChatFaqTabsEntry extends ChatListEntry {
+  ChatFaqTabsEntry();
+}
+
+/// One question / answer pair for in-chat FAQ cards.
+final class ChatFaqQaPair {
+  const ChatFaqQaPair({required this.question, required this.answer});
+
+  final String question;
+  final String answer;
+}
+
+/// Bot message showing FAQ as stacked Q&A cards (parsed from assistant text).
+final class ChatFaqAnswerEntry extends ChatListEntry {
+  ChatFaqAnswerEntry({required this.pairs});
+
+  final List<ChatFaqQaPair> pairs;
 }
