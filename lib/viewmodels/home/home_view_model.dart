@@ -4,189 +4,59 @@ import 'package:scan2serve/api/menu_api.dart';
 import 'package:scan2serve/formatting/rs_money.dart';
 import 'package:scan2serve/models/home/home_model.dart';
 import 'package:scan2serve/services/cart_store.dart';
+import 'package:scan2serve/services/chatbot_menu_context.dart';
+import 'package:scan2serve/services/menu_category_tab_order.dart';
 
 class HomeViewModel extends ChangeNotifier {
   HomeViewModel() {
-    _resetToFallback();
+    _clearMenuState();
     loadMenuFromApi();
     CartStore.instance.addListener(_onCartStoreChanged);
   }
 
   void _onCartStoreChanged() => notifyListeners();
 
+  bool _menuRefreshInFlight = false;
+
   final HomeModel viewData = const HomeModel(
     title: 'Scan2Serve',
     searchHint: 'Search',
-    tabs: [
-      'Previous Orders',
-      'Starters',
-      'Main Course',
-      'Desserts',
-      'Beverages',
-      'Seafood',
-      'Meat',
-      'Vegetarian',
-      'Salads',
-      'Grilled',
-    ],
+    tabs: <String>[],
     cartSummary: '',
   );
 
-  /// Shown in the tab strip: API categories when loaded, else [viewData.tabs].
-  List<String> get effectiveTabs => _apiTabs ?? viewData.tabs;
+  /// Category chips: only real API category names after a successful load,
+  /// ordered for a typical menu flow (savory first, drinks, desserts, history last).
+  List<String> get effectiveTabs => _apiTabs ?? const <String>[];
 
   bool menuLoading = false;
   String? menuLoadError;
 
-  String _activeTab = 'Previous Orders';
+  String _activeTab = '';
   String _activeBottomNav = 'Home';
   String _searchQuery = '';
 
   List<String>? _apiTabs;
   final Map<String, List<MenuItemModel>> _categoryItems = {};
 
-  static final Map<String, List<MenuItemModel>> _fallbackMenu = {
-    'Previous Orders': const [
-      MenuItemModel(
-        name: 'Egg Fried Rice',
-        priceLabel: 'Rs 1200',
-        description: 'Delicious fried rice with egg',
-      ),
-      MenuItemModel(
-        name: 'Fish Fried Rice',
-        priceLabel: 'Rs 1600',
-        description: 'Delicious fried rice with fish',
-      ),
-      MenuItemModel(
-        name: 'Chicken Fried Rice',
-        priceLabel: 'Rs 1600',
-        description: 'Delicious fried rice with chicken',
-      ),
-    ],
-    'Starters': const [
-      MenuItemModel(
-        name: 'Crispy Spring Rolls',
-        priceLabel: 'Rs 900',
-        description: 'Vegetable rolls with sweet chili sauce',
-      ),
-      MenuItemModel(
-        name: 'Chicken Wings',
-        priceLabel: 'Rs 1300',
-        description: 'Crispy wings tossed in spicy glaze',
-      ),
-    ],
-    'Main Course': const [
-      MenuItemModel(
-        name: 'Chicken Kottu',
-        priceLabel: 'Rs 1500',
-        description: 'Street-style kottu with vegetables',
-      ),
-      MenuItemModel(
-        name: 'Seafood Nasi Goreng',
-        priceLabel: 'Rs 1900',
-        description: 'Wok-fried rice with prawns and squid',
-      ),
-    ],
-    'Desserts': const [
-      MenuItemModel(
-        name: 'Chocolate Brownie',
-        priceLabel: 'Rs 700',
-        description: 'Warm brownie with chocolate sauce',
-      ),
-      MenuItemModel(
-        name: 'Fruit Trifle',
-        priceLabel: 'Rs 650',
-        description: 'Fresh fruits layered with cream',
-      ),
-    ],
-    'Beverages': const [
-      MenuItemModel(
-        name: 'Lime Mint Cooler',
-        priceLabel: 'Rs 500',
-        description: 'Refreshing mint and lime drink',
-      ),
-      MenuItemModel(
-        name: 'Iced Coffee',
-        priceLabel: 'Rs 600',
-        description: 'Cold coffee with milk foam',
-      ),
-    ],
-    'Seafood': const [
-      MenuItemModel(
-        name: 'Butter Garlic Prawns',
-        priceLabel: 'Rs 2100',
-        description: 'Pan-seared prawns in garlic butter',
-      ),
-      MenuItemModel(
-        name: 'Grilled Seer Fish',
-        priceLabel: 'Rs 2300',
-        description: 'Char-grilled fish with lemon herb',
-      ),
-    ],
-    'Meat': const [
-      MenuItemModel(
-        name: 'Beef Pepper Steak',
-        priceLabel: 'Rs 2400',
-        description: 'Tender beef in black pepper sauce',
-      ),
-      MenuItemModel(
-        name: 'Mutton Curry',
-        priceLabel: 'Rs 2200',
-        description: 'Slow-cooked mutton with spices',
-      ),
-    ],
-    'Vegetarian': const [
-      MenuItemModel(
-        name: 'Paneer Butter Masala',
-        priceLabel: 'Rs 1400',
-        description: 'Paneer cubes in creamy tomato gravy',
-      ),
-      MenuItemModel(
-        name: 'Veg Fried Noodles',
-        priceLabel: 'Rs 1100',
-        description: 'Stir-fried noodles with garden veggies',
-      ),
-    ],
-    'Salads': const [
-      MenuItemModel(
-        name: 'Caesar Salad',
-        priceLabel: 'Rs 950',
-        description: 'Crisp lettuce with creamy dressing',
-      ),
-      MenuItemModel(
-        name: 'Greek Salad',
-        priceLabel: 'Rs 980',
-        description: 'Fresh olives, feta, and tomatoes',
-      ),
-    ],
-    'Grilled': const [
-      MenuItemModel(
-        name: 'Grilled Chicken Breast',
-        priceLabel: 'Rs 1700',
-        description: 'Juicy chicken with herb seasoning',
-      ),
-      MenuItemModel(
-        name: 'Mixed Grill Platter',
-        priceLabel: 'Rs 2600',
-        description: 'Assorted grilled meats and sides',
-      ),
-    ],
-  };
-
-  void _resetToFallback() {
+  void _clearMenuState() {
     _apiTabs = null;
     _categoryItems.clear();
-    for (final e in _fallbackMenu.entries) {
-      _categoryItems[e.key] = List<MenuItemModel>.from(e.value);
-    }
-    _activeTab = effectiveTabs.isNotEmpty ? effectiveTabs.first : 'Previous Orders';
+    _activeTab = '';
+    ChatbotMenuContextStore.instance.clear();
   }
 
-  /// Loads `/menu/categories/` + `/menu/items/` and replaces tabs when data exists.
-  Future<void> loadMenuFromApi() async {
-    menuLoadError = null;
-    menuLoading = true;
-    notifyListeners();
+  /// Refetches categories + items from the API.
+  ///
+  /// [silent]: no top loading bar; on failure keeps the previous menu and does not clear the UI.
+  Future<void> loadMenuFromApi({bool silent = false}) async {
+    if (_menuRefreshInFlight) return;
+    _menuRefreshInFlight = true;
+    if (!silent) {
+      menuLoadError = null;
+      menuLoading = true;
+      notifyListeners();
+    }
     try {
       final categories = await fetchMenuCategories();
       final items = await fetchMenuItems();
@@ -202,14 +72,18 @@ class HomeViewModel extends ChangeNotifier {
 
       final grouped = <String, List<MenuItemModel>>{};
       for (final raw in items) {
-        if (raw['availability'] == false) continue;
+        if (!menuItemIsAvailableForDisplay(raw)) continue;
         final catId = raw['category'] as int?;
         final tab = idToName[catId] ?? 'Other';
         grouped.putIfAbsent(tab, () => []).add(menuItemFromApiJson(raw));
       }
 
       if (grouped.isEmpty) {
-        menuLoading = false;
+        _categoryItems.clear();
+        _apiTabs = null;
+        _activeTab = '';
+        menuLoadError = null;
+        ChatbotMenuContextStore.instance.clear();
         notifyListeners();
         return;
       }
@@ -230,16 +104,32 @@ class HomeViewModel extends ChangeNotifier {
       _categoryItems
         ..clear()
         ..addAll(grouped);
-      _apiTabs = tabOrder;
+      _apiTabs = organizeMenuTabOrder(tabOrder);
 
       if (!_apiTabs!.contains(_activeTab)) {
         _activeTab = _apiTabs!.first;
       }
+      int dishTotal = 0;
+      for (final List<MenuItemModel> list in _categoryItems.values) {
+        dishTotal += list.length;
+      }
+      ChatbotMenuContextStore.instance.updateFromMenu(
+        categories: _apiTabs!,
+        totalItems: dishTotal,
+      );
+      menuLoadError = null;
     } catch (e) {
-      menuLoadError = e.toString();
-      _resetToFallback();
+      if (silent) {
+        debugPrint('Silent menu refresh failed: $e');
+      } else {
+        menuLoadError = e.toString();
+        _clearMenuState();
+      }
     } finally {
-      menuLoading = false;
+      if (!silent) {
+        menuLoading = false;
+      }
+      _menuRefreshInFlight = false;
       notifyListeners();
     }
   }

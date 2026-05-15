@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:scan2serve/api/auth_token_store.dart';
 import 'package:scan2serve/api/favourites_api.dart';
@@ -37,29 +39,30 @@ class HomePage extends StatefulWidget {
   State<HomePage> createState() => _HomePageState();
 }
 
-class _HomePageState extends State<HomePage> {
+class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
   late final HomeViewModel _viewModel;
   final GlobalKey<ScaffoldState> _scaffoldKey = GlobalKey<ScaffoldState>();
   late final TextEditingController _searchController;
   late final FocusNode _searchFocusNode;
-
-  /// Keyboard / IME toolbar (e.g. Gboard strip) only after user taps search — not on load.
-  bool _searchEditing = false;
+  Timer? _menuPollTimer;
 
   @override
   void initState() {
     super.initState();
+    WidgetsBinding.instance.addObserver(this);
     _viewModel = HomeViewModel();
     _searchController = TextEditingController();
     _searchFocusNode = FocusNode();
-    _searchFocusNode.addListener(_onSearchFocusChanged);
+    _menuPollTimer = Timer.periodic(const Duration(seconds: 5), (_) {
+      if (!mounted) return;
+      unawaited(_viewModel.loadMenuFromApi(silent: true));
+    });
   }
 
-  void _onSearchFocusChanged() {
-    if (!_searchFocusNode.hasFocus &&
-        _searchController.text.trim().isEmpty &&
-        _searchEditing) {
-      setState(() => _searchEditing = false);
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    if (state == AppLifecycleState.resumed && mounted) {
+      unawaited(_viewModel.loadMenuFromApi(silent: true));
     }
   }
 
@@ -70,7 +73,8 @@ class _HomePageState extends State<HomePage> {
 
   @override
   void dispose() {
-    _searchFocusNode.removeListener(_onSearchFocusChanged);
+    _menuPollTimer?.cancel();
+    WidgetsBinding.instance.removeObserver(this);
     _searchFocusNode.dispose();
     _searchController.dispose();
     _viewModel.dispose();
@@ -112,7 +116,7 @@ class _HomePageState extends State<HomePage> {
                     child: Padding(
                       padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
                       child: Text(
-                        'Menu: ${_viewModel.menuLoadError} (showing offline sample)',
+                        'Menu: ${_viewModel.menuLoadError}',
                         style: const TextStyle(fontSize: 12, color: Color(0xFF5D4037)),
                       ),
                     ),
@@ -121,7 +125,10 @@ class _HomePageState extends State<HomePage> {
                   child: Stack(
                     clipBehavior: Clip.none,
                     children: [
-                      CustomScrollView(
+                      RefreshIndicator(
+                        onRefresh: () =>
+                            _viewModel.loadMenuFromApi(silent: true),
+                        child: CustomScrollView(
                         physics: const AlwaysScrollableScrollPhysics(
                           parent: BouncingScrollPhysics(),
                         ),
@@ -138,41 +145,33 @@ class _HomePageState extends State<HomePage> {
                                     hint: data.searchHint,
                                     controller: _searchController,
                                     focusNode: _searchFocusNode,
-                                    readOnly: !_searchEditing,
-                                    onTapActivate: () {
-                                      if (!_searchEditing) {
-                                        setState(() => _searchEditing = true);
-                                        WidgetsBinding.instance.addPostFrameCallback((_) {
-                                          if (mounted) {
-                                            _searchFocusNode.requestFocus();
-                                          }
-                                        });
-                                      }
-                                    },
                                     onChanged: _viewModel.setSearchQuery,
                                     onClear: () {
                                       _searchController.clear();
                                       _viewModel.clearSearch();
                                       _blurSearch();
-                                      setState(() => _searchEditing = false);
                                     },
                                     onDismissKeyboard: _blurSearch,
                                     showClear: searching,
                                   ),
                                   const SizedBox(height: 20),
-                                  _TabStrip(
-                                    tabs: tabs,
-                                    activeTab: activeTab,
-                                    onTabTap: (tab) {
-                                      _blurSearch();
-                                      _viewModel.onTabSelected(tab);
-                                    },
-                                  ),
-                                  const SizedBox(height: 16),
+                                  if (tabs.isNotEmpty) ...[
+                                    _TabStrip(
+                                      tabs: tabs,
+                                      activeTab: activeTab,
+                                      onTabTap: (tab) {
+                                        _blurSearch();
+                                        _viewModel.onTabSelected(tab);
+                                      },
+                                    ),
+                                    const SizedBox(height: 16),
+                                  ],
                                   Text(
                                     searching
                                         ? 'Search results (${items.length})'
-                                        : activeTab,
+                                        : (tabs.isEmpty
+                                            ? 'Menu'
+                                            : activeTab),
                                     style: const TextStyle(
                                       fontSize: 22,
                                       fontWeight: FontWeight.w700,
@@ -196,7 +195,11 @@ class _HomePageState extends State<HomePage> {
                                         child: Text(
                                           searching
                                               ? 'No dishes match your search'
-                                              : 'No items in this category',
+                                              : (_viewModel.menuLoadError != null
+                                                  ? 'Menu could not be loaded.'
+                                                  : (tabs.isEmpty
+                                                      ? 'No menu available yet.'
+                                                      : 'No items in this category')),
                                           textAlign: TextAlign.center,
                                           style: TextStyle(
                                             fontSize: 16,
@@ -235,6 +238,7 @@ class _HomePageState extends State<HomePage> {
                           ),
                           const SliverToBoxAdapter(child: SizedBox(height: 12)),
                         ],
+                      ),
                       ),
                       Align(
                         alignment: Alignment.bottomCenter,
@@ -279,6 +283,9 @@ class _HomePageState extends State<HomePage> {
 
   void _handleBottomNavTap(String nav) {
     _blurSearch();
+    if (nav == 'Home') {
+      unawaited(_viewModel.loadMenuFromApi(silent: true));
+    }
     _viewModel.onBottomNavTap(nav);
     if (nav == 'Home') {
       return;
@@ -299,11 +306,15 @@ class _HomePageState extends State<HomePage> {
 
   void _openFoodDetails(MenuItemModel item) {
     _blurSearch();
-    Navigator.of(context).push(
+    Navigator.of(context)
+        .push<void>(
       MaterialPageRoute<void>(
         builder: (_) => FoodDetailsPage(item: item, homeViewModel: _viewModel),
       ),
-    );
+    )
+        .then((_) {
+      if (mounted) unawaited(_viewModel.loadMenuFromApi(silent: true));
+    });
   }
 
   void _onDrawerItemTap(String id) {
@@ -874,8 +885,6 @@ class _SearchBar extends StatelessWidget {
     required this.hint,
     required this.controller,
     required this.focusNode,
-    required this.readOnly,
-    required this.onTapActivate,
     required this.onChanged,
     required this.onClear,
     required this.onDismissKeyboard,
@@ -885,8 +894,6 @@ class _SearchBar extends StatelessWidget {
   final String hint;
   final TextEditingController controller;
   final FocusNode focusNode;
-  final bool readOnly;
-  final VoidCallback onTapActivate;
   final ValueChanged<String> onChanged;
   final VoidCallback onClear;
   final VoidCallback onDismissKeyboard;
@@ -905,10 +912,7 @@ class _SearchBar extends StatelessWidget {
       child: TextField(
         controller: controller,
         focusNode: focusNode,
-        readOnly: readOnly,
-        showCursor: !readOnly,
-        enableInteractiveSelection: !readOnly,
-        onTap: onTapActivate,
+        autofocus: false,
         onTapOutside: (_) => onDismissKeyboard(),
         onChanged: onChanged,
         keyboardType: TextInputType.text,
@@ -970,12 +974,78 @@ class _CategoryVisual {
         iconColor: Color(0xFF8E7CC3),
       );
     }
-    if (s.contains('main') ||
-        s.contains('course') ||
-        s.contains('curry') ||
-        s.contains('rice')) {
+    // Named dishes / combos — must run before broad "rice" / "curry" checks.
+    if (s.contains('pizza')) {
+      return const _CategoryVisual(
+        icon: Icons.local_pizza_outlined,
+        iconColor: Color(0xFFFF8A65),
+      );
+    }
+    if (s.contains('kottu') || s.contains('kotthu')) {
+      return const _CategoryVisual(
+        icon: Icons.takeout_dining_outlined,
+        iconColor: Color(0xFFE8A34C),
+      );
+    }
+    if (s.contains('soup')) {
+      return const _CategoryVisual(
+        icon: Icons.soup_kitchen_outlined,
+        iconColor: Color(0xFF5C9EDC),
+      );
+    }
+    if (s.contains('fried rice') || s.contains('fried-rice')) {
+      return const _CategoryVisual(
+        icon: Icons.rice_bowl_outlined,
+        iconColor: Color(0xFFFFB74D),
+      );
+    }
+    if (s.contains('rice and curry') ||
+        s.contains('rice & curry') ||
+        s.contains('rice n curry')) {
+      return const _CategoryVisual(
+        icon: Icons.dinner_dining_outlined,
+        iconColor: Color(0xFF9B77D6),
+      );
+    }
+    if (s.contains('biryani') || s.contains('biriyani')) {
+      return const _CategoryVisual(
+        icon: Icons.rice_bowl_outlined,
+        iconColor: Color(0xFFB0856E),
+      );
+    }
+    if (s.contains('noodle')) {
+      return const _CategoryVisual(
+        icon: Icons.ramen_dining_outlined,
+        iconColor: Color(0xFF7D6B8F),
+      );
+    }
+    if (s.contains('burger') || s.contains('sandwich') || s.contains('wrap')) {
+      return const _CategoryVisual(
+        icon: Icons.lunch_dining_outlined,
+        iconColor: Color(0xFFE8A34C),
+      );
+    }
+    if (s.contains('pasta')) {
+      return const _CategoryVisual(
+        icon: Icons.dinner_dining_outlined,
+        iconColor: Color(0xFFFFB74D),
+      );
+    }
+    if (s.contains('main') || s.contains('course')) {
       return const _CategoryVisual(
         icon: Icons.room_service_outlined,
+        iconColor: Color(0xFF9B77D6),
+      );
+    }
+    if (s.contains('curry')) {
+      return const _CategoryVisual(
+        icon: Icons.brunch_dining_outlined,
+        iconColor: Color(0xFF9B77D6),
+      );
+    }
+    if (s.contains('rice')) {
+      return const _CategoryVisual(
+        icon: Icons.rice_bowl_outlined,
         iconColor: Color(0xFF9B77D6),
       );
     }

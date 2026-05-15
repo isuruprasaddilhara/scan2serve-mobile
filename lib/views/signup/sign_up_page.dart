@@ -3,6 +3,7 @@ import 'package:flutter/services.dart';
 import 'package:scan2serve/formatting/phone_number_input.dart';
 import 'package:scan2serve/models/signup/sign_up_model.dart';
 import 'package:scan2serve/theme/app_colors.dart';
+import 'package:scan2serve/validation/password_requirements.dart';
 import 'package:scan2serve/viewmodels/signup/sign_up_view_model.dart';
 import 'package:scan2serve/views/home/home_page.dart';
 import 'package:scan2serve/views/login/login_page.dart';
@@ -181,9 +182,10 @@ class _SignUpPageState extends State<SignUpPage> {
   }
 
   List<Widget> _buildInputFields(List<SignUpFieldModel> fields) {
+    final PasswordRequirements reqs = _viewModel.passwordRequirements;
     final List<Widget> widgets = [];
     for (var i = 0; i < fields.length; i++) {
-      final field = fields[i];
+      final SignUpFieldModel field = fields[i];
       widgets.add(
         _SignUpTextField(
           controller: _viewModel.controllerFor(field.id),
@@ -200,11 +202,79 @@ class _SignUpPageState extends State<SignUpPage> {
               field.id == 'phone' ? localPhoneInputFormatters : null,
         ),
       );
+      if (field.id == 'password') {
+        widgets.addAll(<Widget>[
+          const SizedBox(height: 10),
+          _SignUpPasswordRequirementRow(
+            met: reqs.hasMinLength,
+            text: 'At least 8 characters',
+          ),
+          const SizedBox(height: 6),
+          _SignUpPasswordRequirementRow(
+            met: reqs.hasLettersAndNumbers,
+            text: 'Contains letters and numbers',
+          ),
+          const SizedBox(height: 6),
+          _SignUpPasswordRequirementRow(
+            met: reqs.hasSpecialChar,
+            text: 'Contains special character',
+          ),
+        ]);
+      }
       if (i != fields.length - 1) {
         widgets.add(const SizedBox(height: 10));
       }
     }
     return widgets;
+  }
+}
+
+class _SignUpPasswordRequirementRow extends StatelessWidget {
+  const _SignUpPasswordRequirementRow({
+    required this.met,
+    required this.text,
+  });
+
+  final bool met;
+  final String text;
+
+  static const Color _met = Color(0xFF2E7D32);
+  static const Color _pending = Color(0xFF6A6278);
+
+  @override
+  Widget build(BuildContext context) {
+    final Color color = met ? _met : _pending;
+    return Padding(
+      padding: const EdgeInsets.only(left: 4),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Container(
+            width: 20,
+            height: 20,
+            decoration: BoxDecoration(
+              color: met ? color.withValues(alpha: 0.12) : Colors.transparent,
+              shape: BoxShape.circle,
+              border: Border.all(color: color, width: met ? 0 : 1.2),
+            ),
+            child: met
+                ? Icon(Icons.check_rounded, size: 14, color: color)
+                : null,
+          ),
+          const SizedBox(width: 8),
+          Expanded(
+            child: Text(
+              text,
+              style: TextStyle(
+                fontSize: 13,
+                fontWeight: FontWeight.w500,
+                color: color,
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
   }
 }
 

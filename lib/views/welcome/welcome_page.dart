@@ -6,6 +6,7 @@ import 'package:scan2serve/viewmodels/welcome/welcome_view_model.dart';
 import 'package:scan2serve/views/home/home_page.dart';
 import 'package:scan2serve/views/login/login_page.dart';
 import 'package:scan2serve/views/signup/sign_up_page.dart';
+import 'package:scan2serve/widgets/brand_hero_tags.dart';
 
 class WelcomePage extends StatefulWidget {
   const WelcomePage({super.key});
@@ -59,24 +60,41 @@ class _WelcomePageState extends State<WelcomePage> {
                       children: [
                         const SizedBox(height: 26),
                         Center(
-                          child: ClipRRect(
-                            borderRadius: BorderRadius.circular(26),
-                            child: Image.asset(
-                              data.logoAssetPath,
-                              width: 94,
-                              height: 94,
-                              fit: BoxFit.cover,
+                          child: Hero(
+                            tag: BrandHeroTags.logo,
+                            child: Material(
+                              color: Colors.transparent,
+                              child: ClipRRect(
+                                borderRadius: BorderRadius.circular(26),
+                                child: Image.asset(
+                                  data.logoAssetPath,
+                                  width: 94,
+                                  height: 94,
+                                  fit: BoxFit.cover,
+                                  errorBuilder: (_, __, ___) => const Icon(
+                                    Icons.restaurant_menu_rounded,
+                                    size: 94 * 0.55,
+                                    color: Color(0xFF9B77D6),
+                                  ),
+                                ),
+                              ),
                             ),
                           ),
                         ),
                         const SizedBox(height: 14),
-                        Text(
-                          data.brandName,
-                          textAlign: TextAlign.center,
-                          style: const TextStyle(
-                            fontSize: 45 * 0.9,
-                            fontWeight: FontWeight.w600,
-                            color: Color(0xFF63468C),
+                        Hero(
+                          tag: BrandHeroTags.title,
+                          child: Material(
+                            color: Colors.transparent,
+                            child: Text(
+                              data.brandName,
+                              textAlign: TextAlign.center,
+                              style: const TextStyle(
+                                fontSize: 45 * 0.9,
+                                fontWeight: FontWeight.w600,
+                                color: Color(0xFF63468C),
+                              ),
+                            ),
                           ),
                         ),
                         const SizedBox(height: 38),

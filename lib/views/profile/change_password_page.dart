@@ -4,6 +4,7 @@ import 'package:scan2serve/api/users_api.dart';
 import 'package:scan2serve/navigation/navigate_to_home.dart';
 import 'package:scan2serve/theme/app_colors.dart';
 import 'package:scan2serve/views/track_order/track_order_page.dart';
+import 'package:scan2serve/validation/password_requirements.dart';
 import 'package:scan2serve/widgets/scan_bottom_nav_bar.dart';
 
 abstract final class _ChangePasswordUi {
@@ -51,20 +52,8 @@ class _ChangePasswordPageState extends State<ChangePasswordPage> {
     super.dispose();
   }
 
-  String get _newValue => _newController.text;
-
-  bool get _hasMinLength => _newValue.length >= 8;
-
-  bool get _hasLettersAndNumbers {
-    final String s = _newValue;
-    return RegExp('[A-Za-z]').hasMatch(s) && RegExp('[0-9]').hasMatch(s);
-  }
-
-  bool get _hasSpecialChar =>
-      RegExp(r'[^A-Za-z0-9\s]').hasMatch(_newValue);
-
-  bool get _allRequirementsMet =>
-      _hasMinLength && _hasLettersAndNumbers && _hasSpecialChar;
+  PasswordRequirements get _newRequirements =>
+      PasswordRequirements.evaluate(_newController.text);
 
   @override
   Widget build(BuildContext context) {
@@ -117,17 +106,17 @@ class _ChangePasswordPageState extends State<ChangePasswordPage> {
                     ),
                     const SizedBox(height: 14),
                     _RequirementRow(
-                      met: _hasMinLength,
+                      met: _newRequirements.hasMinLength,
                       text: 'At least 8 characters',
                     ),
                     const SizedBox(height: 8),
                     _RequirementRow(
-                      met: _hasLettersAndNumbers,
+                      met: _newRequirements.hasLettersAndNumbers,
                       text: 'Contains letters and numbers',
                     ),
                     const SizedBox(height: 8),
                     _RequirementRow(
-                      met: _hasSpecialChar,
+                      met: _newRequirements.hasSpecialChar,
                       text: 'Contains special character',
                     ),
                     const SizedBox(height: 18),
@@ -176,7 +165,7 @@ class _ChangePasswordPageState extends State<ChangePasswordPage> {
       _toast(context, 'Enter your current password');
       return;
     }
-    if (!_allRequirementsMet) {
+    if (!_newRequirements.allMet) {
       _toast(context, 'New password does not meet all requirements');
       return;
     }

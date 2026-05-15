@@ -182,7 +182,9 @@ class _ProfilePageState extends State<ProfilePage> {
                               : data.ordersCount,
                           favourite: _apiProfile != null
                               ? (_favouriteSubtitleFromApi ?? 'None yet')
-                              : data.favouriteFood,
+                              : (data.favouriteFood.trim().isEmpty
+                                  ? 'None yet'
+                                  : data.favouriteFood),
                         ),
                         const SizedBox(height: 20),
                         _MenuCard(

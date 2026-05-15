@@ -2,9 +2,12 @@ import 'package:flutter/material.dart';
 import 'package:scan2serve/api/users_api.dart';
 import 'package:scan2serve/formatting/phone_number_input.dart';
 import 'package:scan2serve/models/signup/sign_up_model.dart';
+import 'package:scan2serve/validation/password_requirements.dart';
 
 class SignUpViewModel extends ChangeNotifier {
-  SignUpViewModel();
+  SignUpViewModel() {
+    controllers['password']!.addListener(_onPasswordChanged);
+  }
 
   final SignUpModel viewData = const SignUpModel(
     title: 'Sign Up',
@@ -63,6 +66,11 @@ class SignUpViewModel extends ChangeNotifier {
   bool get isSubmitting => _submitting;
   String? get errorMessage => _errorMessage;
 
+  PasswordRequirements get passwordRequirements =>
+      PasswordRequirements.evaluate(controllers['password']!.text);
+
+  void _onPasswordChanged() => notifyListeners();
+
   TextEditingController controllerFor(String fieldId) {
     return controllers[fieldId]!;
   }
@@ -102,6 +110,11 @@ class SignUpViewModel extends ChangeNotifier {
     }
     if (password != confirm) {
       _errorMessage = 'Passwords do not match.';
+      notifyListeners();
+      return false;
+    }
+    if (!PasswordRequirements.evaluate(password).allMet) {
+      _errorMessage = 'Password does not meet all requirements.';
       notifyListeners();
       return false;
     }
@@ -158,6 +171,7 @@ class SignUpViewModel extends ChangeNotifier {
 
   @override
   void dispose() {
+    controllers['password']!.removeListener(_onPasswordChanged);
     for (final controller in controllers.values) {
       controller.dispose();
     }

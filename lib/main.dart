@@ -3,7 +3,9 @@ import 'package:flutter/material.dart';
 import 'package:scan2serve/navigation/app_navigator.dart';
 import 'package:scan2serve/services/menu_deep_link.dart';
 import 'package:scan2serve/theme/app_colors.dart';
+import 'package:scan2serve/views/welcome/welcome_animation_page.dart';
 import 'package:scan2serve/views/welcome/welcome_page.dart';
+import 'package:scan2serve/widgets/global_track_order_ready_listener.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -16,7 +18,7 @@ void main() async {
 
   runApp(const Scan2ServeApp());
 
-  // On mobile, start deep-link listeners after the widget tree is ready.
+  // On mobile (Android / iOS), start deep-link listeners after the widget tree is ready.
   if (!kIsWeb) {
     await startMenuDeepLinkListeners();
   }
@@ -36,8 +38,18 @@ class Scan2ServeApp extends StatelessWidget {
         scaffoldBackgroundColor: AppColors.screenBackground,
         useMaterial3: true,
       ),
-      initialRoute: routeWelcome,
+      builder: (context, child) {
+        return Stack(
+          fit: StackFit.expand,
+          children: [
+            child ?? const SizedBox.shrink(),
+            const GlobalTrackOrderReadyListener(),
+          ],
+        );
+      },
+      initialRoute: routeWelcomeAnimation,
       routes: <String, WidgetBuilder>{
+        routeWelcomeAnimation: (_) => const WelcomeAnimationPage(),
         routeWelcome: (_) => const WelcomePage(),
       },
     );
