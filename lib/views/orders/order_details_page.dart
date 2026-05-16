@@ -52,9 +52,7 @@ void _reorderPastOrderToCart(BuildContext context, OrderDetailModel detail) {
       behavior: SnackBarBehavior.floating,
     ),
   );
-  // Replace order details so system / browser back from cart returns to My Orders,
-  // not this past-order screen (avoids extra history steps on mobile web).
-  Navigator.of(context).pushReplacement(
+  Navigator.of(context).push(
     MaterialPageRoute<void>(builder: (_) => const CartPage()),
   );
 }
